@@ -209,6 +209,8 @@ Type a **different** password. At least 8 characters. Press Enter.
 
 ❌ **If it stopped with a red ✗** — copy everything in the Terminal window, paste it to me, and I'll tell you exactly what to do. Nothing is broken; the script undoes its own changes if anything fails.
 
+> **Re-running the installer?** It's safe. But when it asks for the superuser password the second time, **enter the same one you used before** — the account already exists and it just needs to sign in. If you've forgotten it, the guide's troubleshooting section at the bottom shows how to reset it.
+
 ---
 
 # PART 4 — Check your site still works

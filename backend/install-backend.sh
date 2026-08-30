@@ -214,28 +214,69 @@ if [[ $SKIP_SEED -eq 0 ]]; then
   echo
   echo "  PocketBase needs a superuser account for its own dashboard."
   echo "  This is separate from the site's staff login, which comes next."
-  read -r -p "  Superuser email [${CERTBOT_EMAIL:-honestdigitalmarketer@gmail.com}]: " SU_EMAIL
+  echo
+  echo "  (If you have run this before, enter the SAME password you used then —"
+  echo "   the account already exists and we just need to sign in to it.)"
+  read -r -p "  Superuser email [honestdigitalmarketer@gmail.com]: " SU_EMAIL
   SU_EMAIL="${SU_EMAIL:-honestdigitalmarketer@gmail.com}"
   read -r -s -p "  Superuser password (min 10 chars): " SU_PASS; echo
   [[ ${#SU_PASS} -ge 10 ]] || die "Password too short."
 
   systemctl stop "$SERVICE"
   sudo -u pocketbase "$PB_DIR/pocketbase" admin create "$SU_EMAIL" "$SU_PASS" --dir="$PB_DIR/pb_data" >/dev/null 2>&1 \
-    || warn "Superuser may already exist — continuing."
+    && ok "Superuser created" \
+    || info "Superuser already exists — signing in to it"
   systemctl start "$SERVICE"
   sleep 3
-  ok "Superuser ready"
 
   TOKEN=$(curl -fsS -X POST "$API/api/admins/auth-with-password" \
     -H 'Content-Type: application/json' \
-    -d "{\"identity\":\"$SU_EMAIL\",\"password\":\"$SU_PASS\"}" | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])') \
-    || die "Could not authenticate as superuser."
+    -d "{\"identity\":\"$SU_EMAIL\",\"password\":\"$SU_PASS\"}" 2>/dev/null \
+    | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])' 2>/dev/null) || TOKEN=""
+  if [[ -z "$TOKEN" ]]; then
+    die "Could not sign in as superuser.
+      The account exists but that password was wrong. Either re-run and use the
+      original password, or reset it with:
+        systemctl stop $SERVICE
+        sudo -u pocketbase $PB_DIR/pocketbase admin update $SU_EMAIL NEWPASSWORD --dir=$PB_DIR/pb_data
+        systemctl start $SERVICE"
+  fi
+  ok "Signed in as superuser"
 
   info "Importing collections…"
   python3 - "$SCRIPT_DIR/pb_schema.json" "$API" "$TOKEN" <<'PYEOF'
 import json, sys, urllib.request
+
 schema_path, api, token = sys.argv[1], sys.argv[2], sys.argv[3]
 collections = json.load(open(schema_path))
+
+def get(path):
+    req = urllib.request.Request(api + path, headers={"Authorization": token})
+    return json.loads(urllib.request.urlopen(req).read())
+
+# PocketBase ships with its own "users" collection. Importing ours under a
+# different id would try to create a second collection with the same name and
+# fail on the unique-name constraint. So: for any collection that already
+# exists by name, adopt its real id and rewrite every reference to it.
+try:
+    existing = {c["name"]: c["id"] for c in get("/api/collections?perPage=200")["items"]}
+except Exception as e:
+    print("    could not list existing collections:", e); sys.exit(1)
+
+idmap = {}
+for c in collections:
+    real = existing.get(c["name"])
+    if real and real != c["id"]:
+        idmap[c["id"]] = real
+
+if idmap:
+    raw = json.dumps(collections)
+    for placeholder, real in idmap.items():
+        raw = raw.replace(placeholder, real)      # also fixes relation targets
+    collections = json.loads(raw)
+    print("    adopting %d existing collection(s): %s"
+          % (len(idmap), ", ".join(n for n in existing if n in [c["name"] for c in collections])))
+
 req = urllib.request.Request(
     api + "/api/collections/import",
     data=json.dumps({"collections": collections, "deleteMissing": False}).encode(),
@@ -245,7 +286,7 @@ try:
     urllib.request.urlopen(req).read()
     print("    collections imported")
 except urllib.error.HTTPError as e:
-    print("    import failed:", e.read().decode()[:600]); sys.exit(1)
+    print("    import failed:", e.read().decode()[:900]); sys.exit(1)
 PYEOF
 
   info "Seeding tools and site copy…"
