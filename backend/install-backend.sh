@@ -276,50 +276,86 @@ except Exception: print("")' 2>/dev/null)
   fi
   ok "Signed in as superuser"
 
-  info "Importing collections…"
+  info "Creating collections…"
   python3 - "$SCRIPT_DIR/pb_schema.json" "$API" "$TOKEN" <<'PYEOF'
 import json, sys, urllib.request
 
 schema_path, api, token = sys.argv[1], sys.argv[2], sys.argv[3]
-collections = json.load(open(schema_path))
+wanted = json.load(open(schema_path))
 
-def get(path):
-    req = urllib.request.Request(api + path, headers={"Authorization": token})
-    return json.loads(urllib.request.urlopen(req).read())
+def call(path, payload=None, method="GET"):
+    req = urllib.request.Request(
+        api + path,
+        data=json.dumps(payload).encode() if payload is not None else None,
+        headers={"Content-Type": "application/json", "Authorization": token},
+        method=method)
+    body = urllib.request.urlopen(req).read()
+    return json.loads(body) if body else {}
 
-# PocketBase ships with its own "users" collection. Importing ours under a
-# different id would try to create a second collection with the same name and
-# fail on the unique-name constraint. So: for any collection that already
-# exists by name, adopt its real id and rewrite every reference to it.
 try:
-    existing = {c["name"]: c["id"] for c in get("/api/collections?perPage=200")["items"]}
+    current = {c["name"]: c for c in call("/api/collections?perPage=200")["items"]}
 except Exception as e:
     print("    could not list existing collections:", e); sys.exit(1)
 
-idmap = {}
-for c in collections:
-    real = existing.get(c["name"])
-    if real and real != c["id"]:
-        idmap[c["id"]] = real
+# PocketBase ships its own "users" collection, already containing a `name`
+# field. Importing over it would try to add a second `name` column, so
+# anything that already exists is MERGED field-by-field instead, and only
+# genuinely new collections go through import.
+idmap = {c["id"]: current[c["name"]]["id"]
+         for c in wanted if c["name"] in current and current[c["name"]]["id"] != c["id"]}
 
 if idmap:
-    raw = json.dumps(collections)
+    raw = json.dumps(wanted)
     for placeholder, real in idmap.items():
-        raw = raw.replace(placeholder, real)      # also fixes relation targets
-    collections = json.loads(raw)
-    print("    adopting %d existing collection(s): %s"
-          % (len(idmap), ", ".join(n for n in existing if n in [c["name"] for c in collections])))
+        raw = raw.replace(placeholder, real)      # repoints relation targets too
+    wanted = json.loads(raw)
 
-req = urllib.request.Request(
-    api + "/api/collections/import",
-    data=json.dumps({"collections": collections, "deleteMissing": False}).encode(),
-    headers={"Content-Type": "application/json", "Authorization": token},
-    method="PUT")
-try:
-    urllib.request.urlopen(req).read()
-    print("    collections imported")
-except urllib.error.HTTPError as e:
-    print("    import failed:", e.read().decode()[:900]); sys.exit(1)
+RULES = ("listRule", "viewRule", "createRule", "updateRule", "deleteRule")
+merged, created = [], []
+
+for c in wanted:
+    if c["name"] not in current:
+        created.append(c)
+        continue
+
+    # Keep every existing field exactly as it is — including its id, which is
+    # what stops PocketBase treating it as a new column — and append only the
+    # ones that aren't there yet.
+    live = {k: v for k, v in current[c["name"]].items() if k not in ("created", "updated")}
+    have = {f["name"] for f in live.get("schema", [])}
+    added = [f["name"] for f in c.get("schema", []) if f["name"] not in have]
+    for f in c.get("schema", []):
+        if f["name"] not in have:
+            live.setdefault("schema", []).append({k: v for k, v in f.items() if k != "id"})
+    for r in RULES:
+        if r in c:
+            live[r] = c[r]
+    if c.get("type") == "auth" and isinstance(c.get("options"), dict):
+        live.setdefault("options", {}).update(c["options"])
+
+    if not added and all(live.get(r) == c.get(r) for r in RULES if r in c):
+        merged.append("%s (already up to date)" % c["name"])
+        continue
+
+    try:
+        call("/api/collections/" + live["id"], live, "PATCH")
+        merged.append("%s (+%d field%s)" % (c["name"], len(added), "" if len(added) == 1 else "s"))
+    except urllib.error.HTTPError as e:
+        print("    could not update '%s': %s" % (c["name"], e.read().decode()[:500]))
+        sys.exit(1)
+
+if merged:
+    print("    merged into existing: " + ", ".join(merged))
+
+if created:
+    try:
+        call("/api/collections/import",
+             {"collections": created, "deleteMissing": False}, "PUT")
+        print("    created: " + ", ".join(c["name"] for c in created))
+    except urllib.error.HTTPError as e:
+        print("    import failed:", e.read().decode()[:900]); sys.exit(1)
+else:
+    print("    all collections already present")
 PYEOF
 
   info "Seeding tools and site copy…"

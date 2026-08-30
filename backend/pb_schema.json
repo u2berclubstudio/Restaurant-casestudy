@@ -25,7 +25,6 @@
       { "name": "restaurant", "type": "text", "required": false, "options": { "max": 160 } },
       { "name": "city", "type": "text", "required": false, "options": { "max": 120 } },
       {
-        "comment": "Not required, so signup validation passes before the hook fills it in. The hook forces 'free' on every create regardless of what the request sends.",
         "name": "plan", "type": "select", "required": false,
         "options": { "maxSelect": 1, "values": ["free", "pro", "staff"] }
       },
