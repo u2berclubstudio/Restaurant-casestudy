@@ -12,19 +12,54 @@
 
 // ---------------------------------------------------------------- helpers
 
+/**
+ * The DAO returns a Go slice, not a JavaScript array. Array methods like
+ * .map() and .forEach() are not reliably available on it, so everything goes
+ * through here first and comes back as a real JS array.
+ */
+function toArray(slice) {
+  const out = [];
+  if (!slice) return out;
+  const n = slice.length || 0;
+  for (let i = 0; i < n; i++) out.push(slice[i]);
+  return out;
+}
+
+/**
+ * Wrap a route handler so an unexpected error comes back as a readable
+ * message instead of PocketBase's generic 400. Without this, a one-line
+ * mistake in here looks identical to a misconfigured server from the browser.
+ */
+function route(handler) {
+  return (c) => {
+    try {
+      return handler(c);
+    } catch (e) {
+      const msg = (e && (e.message || e.toString())) || "unknown error";
+      try { $app.logger().error("rcs route failed", "error", "" + msg); } catch (_) {}
+      return c.json(500, { message: "Server error: " + msg });
+    }
+  };
+}
+
 /** Read the tools collection into a plain array, ordered. */
 function loadTools() {
-  const records = $app.dao().findRecordsByFilter("tools", "1=1", "position", 200, 0);
-  return records.map((r) => ({
-    slug: r.getString("slug"),
-    title: r.getString("title"),
-    icon: r.getString("icon"),
-    blurb: r.getString("blurb"),
-    position: r.getInt("position"),
-    visibility: r.getString("visibility"),
-    enabled: r.getBool("enabled"),
-    locked_message: r.getString("locked_message"),
-  }));
+  const records = toArray($app.dao().findRecordsByFilter("tools", "1=1", "position", 200, 0));
+  const out = [];
+  for (let i = 0; i < records.length; i++) {
+    const r = records[i];
+    out.push({
+      slug: r.getString("slug"),
+      title: r.getString("title"),
+      icon: r.getString("icon"),
+      blurb: r.getString("blurb"),
+      position: r.getInt("position"),
+      visibility: r.getString("visibility"),
+      enabled: r.getBool("enabled"),
+      locked_message: r.getString("locked_message"),
+    });
+  }
+  return out;
 }
 
 /** Parse a user's per-tool overrides: { "menu": "allow", "sop": "deny" } */
@@ -124,11 +159,14 @@ function authUser(c) {
  * who you are, which tools you may use, the editable homepage copy, and any
  * live announcement.
  */
-routerAdd("GET", "/api/rcs/bootstrap", (c) => {
+routerAdd("GET", "/api/rcs/bootstrap", route((c) => {
   const user = authUser(c);
-  const tools = loadTools().map((t) => {
+  const all = loadTools();
+  const tools = [];
+  for (let i = 0; i < all.length; i++) {
+    const t = all[i];
     const a = accessFor(t, user);
-    return {
+    tools.push({
       slug: t.slug,
       title: t.title,
       icon: t.icon,
@@ -138,22 +176,25 @@ routerAdd("GET", "/api/rcs/bootstrap", (c) => {
       enabled: t.enabled,
       access: a.access,
       reason: a.reason,
-    };
-  });
+    });
+  }
 
   // Editable site copy
   const content = {};
   try {
-    $app.dao().findRecordsByFilter("site_content", "1=1", "position", 300, 0)
-      .forEach((r) => { content[r.getString("key")] = r.getString("value"); });
+    const rows = toArray($app.dao().findRecordsByFilter("site_content", "1=1", "position", 300, 0));
+    for (let i = 0; i < rows.length; i++) {
+      content[rows[i].getString("key")] = rows[i].getString("value");
+    }
   } catch (_) {}
 
   // Live announcement for this audience
   let announcement = null;
   try {
-    const rows = $app.dao().findRecordsByFilter("announcements", "active = true", "-created", 10, 0);
+    const rows = toArray($app.dao().findRecordsByFilter("announcements", "active = true", "-created", 10, 0));
     const plan = user ? user.getString("plan") : "";
-    for (const r of rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
       const aud = r.getString("audience") || "everyone";
       const match =
         aud === "everyone" ||
@@ -188,14 +229,14 @@ routerAdd("GET", "/api/rcs/bootstrap", (c) => {
   }
 
   return c.json(200, { user: me, tools: tools, content: content, announcement: announcement });
-});
+}));
 
 /**
  * GET /api/rcs/access/:slug
  * The single source of truth for "may this person use this tool".
  * Tool pages call this on load.
  */
-routerAdd("GET", "/api/rcs/access/:slug", (c) => {
+routerAdd("GET", "/api/rcs/access/:slug", route((c) => {
   const slug = c.pathParam("slug");
   const user = authUser(c);
   let rec;
@@ -213,20 +254,20 @@ routerAdd("GET", "/api/rcs/access/:slug", (c) => {
   };
   const a = accessFor(tool, user);
   return c.json(200, { slug: slug, title: tool.title, access: a.access, reason: a.reason });
-});
+}));
 
 /**
  * GET /api/rcs/admin/overview   (staff only)
  * Counts and recent activity for the admin dashboard.
  */
-routerAdd("GET", "/api/rcs/admin/overview", (c) => {
+routerAdd("GET", "/api/rcs/admin/overview", route((c) => {
   const user = authUser(c);
   if (!user || user.getString("plan") !== "staff") {
     return c.json(403, { message: "Staff only." });
   }
 
   function count(collection, filter) {
-    try { return $app.dao().findRecordsByFilter(collection, filter || "1=1", "", 5000, 0).length; }
+    try { return toArray($app.dao().findRecordsByFilter(collection, filter || "1=1", "", 5000, 0)).length; }
     catch (_) { return 0; }
   }
 
@@ -234,11 +275,12 @@ routerAdd("GET", "/api/rcs/admin/overview", (c) => {
 
   const byTool = {};
   try {
-    $app.dao().findRecordsByFilter("events", `created >= "${since}" && type = "tool_open"`, "-created", 5000, 0)
-      .forEach((r) => {
-        const t = r.getString("tool") || "unknown";
-        byTool[t] = (byTool[t] || 0) + 1;
-      });
+    const evs = toArray($app.dao().findRecordsByFilter(
+      "events", `created >= "${since}" && type = "tool_open"`, "-created", 5000, 0));
+    for (let i = 0; i < evs.length; i++) {
+      const t = evs[i].getString("tool") || "unknown";
+      byTool[t] = (byTool[t] || 0) + 1;
+    }
   } catch (_) {}
 
   return c.json(200, {
@@ -250,14 +292,14 @@ routerAdd("GET", "/api/rcs/admin/overview", (c) => {
     leads: count("leads"),
     opens_30d: byTool,
   });
-});
+}));
 
 /**
  * GET /api/rcs/admin/users   (staff only)
  * The user list with everything the admin screen needs, including emails,
  * which the default users list rule deliberately hides from normal accounts.
  */
-routerAdd("GET", "/api/rcs/admin/users", (c) => {
+routerAdd("GET", "/api/rcs/admin/users", route((c) => {
   const me = authUser(c);
   if (!me || me.getString("plan") !== "staff") {
     return c.json(403, { message: "Staff only." });
@@ -267,12 +309,14 @@ routerAdd("GET", "/api/rcs/admin/users", (c) => {
   const params = q ? { q: q } : {};
   let rows = [];
   try {
-    rows = $app.dao().findRecordsByFilter("users", filter, "-created", 500, 0, params);
+    rows = toArray($app.dao().findRecordsByFilter("users", filter, "-created", 500, 0, params));
   } catch (e) {
     return c.json(500, { message: "" + e });
   }
-  return c.json(200, {
-    items: rows.map((r) => ({
+  const items = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    items.push({
       id: r.id,
       email: r.email(),
       name: r.getString("name"),
@@ -285,15 +329,16 @@ routerAdd("GET", "/api/rcs/admin/users", (c) => {
       admin_note: r.getString("admin_note"),
       created: r.getString("created"),
       last_seen: r.getString("last_seen"),
-    })),
-  });
-});
+    });
+  }
+  return c.json(200, { items: items });
+}));
 
 /**
  * POST /api/rcs/admin/user/:id   (staff only)
  * Update a user's plan, suspension, per-tool overrides, outlet limit or note.
  */
-routerAdd("POST", "/api/rcs/admin/user/:id", (c) => {
+routerAdd("POST", "/api/rcs/admin/user/:id", route((c) => {
   const me = authUser(c);
   if (!me || me.getString("plan") !== "staff") {
     return c.json(403, { message: "Staff only." });
@@ -325,22 +370,26 @@ routerAdd("POST", "/api/rcs/admin/user/:id", (c) => {
 
   $app.dao().saveRecord(rec);
   return c.json(200, { ok: true });
-});
+}));
 
 /**
  * GET /api/rcs/admin/leads   (staff only)  — with ?format=csv for export
  */
-routerAdd("GET", "/api/rcs/admin/leads", (c) => {
+routerAdd("GET", "/api/rcs/admin/leads", route((c) => {
   const me = authUser(c);
   if (!me || me.getString("plan") !== "staff") {
     return c.json(403, { message: "Staff only." });
   }
   let rows = [];
-  try { rows = $app.dao().findRecordsByFilter("leads", "1=1", "-created", 5000, 0); } catch (_) {}
-  const items = rows.map((r) => ({
-    id: r.id, email: r.getString("email"), source: r.getString("source"),
-    note: r.getString("note"), created: r.getString("created"),
-  }));
+  try { rows = toArray($app.dao().findRecordsByFilter("leads", "1=1", "-created", 5000, 0)); } catch (_) {}
+  const items = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    items.push({
+      id: r.id, email: r.getString("email"), source: r.getString("source"),
+      note: r.getString("note"), created: r.getString("created"),
+    });
+  }
 
   if (c.queryParam("format") === "csv") {
     let csv = "email,source,created\n";
@@ -352,19 +401,21 @@ routerAdd("GET", "/api/rcs/admin/leads", (c) => {
     return c.string(200, csv);
   }
   return c.json(200, { items: items });
-});
+}));
 
 /**
  * POST /api/rcs/admin/tools   (staff only) — save visibility settings
  * POST /api/rcs/admin/content (staff only) — save homepage copy
  * POST /api/rcs/admin/announcement (staff only)
  */
-routerAdd("POST", "/api/rcs/admin/tools", (c) => {
+routerAdd("POST", "/api/rcs/admin/tools", route((c) => {
   const me = authUser(c);
   if (!me || me.getString("plan") !== "staff") return c.json(403, { message: "Staff only." });
   const body = new DynamicModel({ items: [] });
   c.bind(body);
-  (body.items || []).forEach((it) => {
+  const items = toArray(body.items);
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
     try {
       const r = $app.dao().findFirstRecordByData("tools", "slug", it.slug);
       if (it.visibility) r.set("visibility", it.visibility);
@@ -374,26 +425,28 @@ routerAdd("POST", "/api/rcs/admin/tools", (c) => {
       if (it.position !== undefined && it.position !== null) r.set("position", it.position);
       $app.dao().saveRecord(r);
     } catch (_) {}
-  });
+  }
   return c.json(200, { ok: true });
-});
+}));
 
-routerAdd("POST", "/api/rcs/admin/content", (c) => {
+routerAdd("POST", "/api/rcs/admin/content", route((c) => {
   const me = authUser(c);
   if (!me || me.getString("plan") !== "staff") return c.json(403, { message: "Staff only." });
   const body = new DynamicModel({ items: [] });
   c.bind(body);
-  (body.items || []).forEach((it) => {
+  const items = toArray(body.items);
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
     try {
       const r = $app.dao().findFirstRecordByData("site_content", "key", it.key);
       r.set("value", it.value === undefined || it.value === null ? "" : "" + it.value);
       $app.dao().saveRecord(r);
     } catch (_) {}
-  });
+  }
   return c.json(200, { ok: true });
-});
+}));
 
-routerAdd("POST", "/api/rcs/admin/announcement", (c) => {
+routerAdd("POST", "/api/rcs/admin/announcement", route((c) => {
   const me = authUser(c);
   if (!me || me.getString("plan") !== "staff") return c.json(403, { message: "Staff only." });
   const body = new DynamicModel({
@@ -404,7 +457,7 @@ routerAdd("POST", "/api/rcs/admin/announcement", (c) => {
   // One announcement record, reused.
   let rec;
   try {
-    const rows = $app.dao().findRecordsByFilter("announcements", "1=1", "-created", 1, 0);
+    const rows = toArray($app.dao().findRecordsByFilter("announcements", "1=1", "-created", 1, 0));
     rec = rows.length ? rows[0] : null;
   } catch (_) { rec = null; }
   if (!rec) {
@@ -419,7 +472,7 @@ routerAdd("POST", "/api/rcs/admin/announcement", (c) => {
   rec.set("audience", body.audience || "everyone");
   $app.dao().saveRecord(rec);
   return c.json(200, { ok: true });
-});
+}));
 
 // ---------------------------------------------------------------- guards
 
@@ -461,9 +514,9 @@ onRecordBeforeCreateRequest((e) => {
   const limit = user.getInt("outlet_limit") || (user.getString("plan") === "pro" ? 999 : 1);
   let existing = 0;
   try {
-    existing = $app.dao().findRecordsByFilter(
+    existing = toArray($app.dao().findRecordsByFilter(
       "outlets", `user = "${user.id}" && archived != true`, "", 1000, 0
-    ).length;
+    )).length;
   } catch (_) {}
   if (existing >= limit) {
     throw new ForbiddenError(
