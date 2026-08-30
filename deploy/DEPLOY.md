@@ -4,6 +4,7 @@
 |---|---|
 | **Domain** | `restaurantcasestudy.in` |
 | **Server** | `129.121.123.192` |
+| **Repo** | `github.com/u2berclubstudio/Restaurant-casestudy` *(public)* |
 | **Web root** | `/var/www/restaurant-casestudy` |
 | **Git clone** | `/opt/restaurant-casestudy` |
 
@@ -41,37 +42,22 @@ You'll need:
 
 ---
 
-## ⚠️ One thing to get right first
+## Step 1 — Push the site to GitHub
 
-The Git repository must be the **`website` folder only** — not the folder above it.
+**Already done for you:** the `website` folder is now a Git repository, wired to your remote, with everything committed and ready. You just need to send it.
 
-The parent folder holds your book drafts (`.docx` files). If you publish the parent, those get uploaded to GitHub. On a public repo, that means anyone can download your unpublished manuscript.
+1. Open **GitHub Desktop**
+2. If it shows `Restaurant-casestudy` as missing or empty, choose **File → Add Local Repository** and pick:
+   ```
+   .../Restaurant Casestudy  APP  (book)/website
+   ```
+   That folder *is* the repository now. (GitHub Desktop had cloned the empty repo into a subfolder, which would have left you editing one copy and publishing another — that's been corrected.)
+3. You'll see one commit waiting: *"Add Restaurant Casestudy site"*
+4. Click **Push origin**
 
-When GitHub Desktop asks for the local path, pick:
+Then reload `https://github.com/u2berclubstudio/Restaurant-casestudy` — you should see 34 files: the HTML pages, `assets/`, `t/` and `deploy/`.
 
-```
-.../Restaurant Casestudy  APP  (book)/website
-```
-
-**not** the folder above it. The `.gitignore` in `website/` protects everything inside that folder, but it cannot protect files that sit outside it.
-
-If you'd rather not think about this at all, make the repo **Private** in step 2. You can still clone a private repo onto the server — step 4 covers it.
-
----
-
-## Step 1 — Publish from GitHub Desktop
-
-1. Open **GitHub Desktop** → **File → Add Local Repository**
-2. Choose the **`website`** folder (see the warning above)
-3. It'll say "this directory does not appear to be a Git repository" → click **create a repository**
-4. Name: `restaurant-casestudy`. Leave Git Ignore and License as *None* — a `.gitignore` is already there.
-5. Click **Create Repository**
-6. You'll see all the files listed as changes. Write a summary like `Initial site` and click **Commit to main**
-7. Click **Publish repository** at the top
-8. **Decide public or private here.** Private is the safer default; there's no benefit to a public repo unless you want others to contribute.
-9. Click **Publish Repository**
-
-Copy the repo URL from your browser — it looks like `https://github.com/yourname/restaurant-casestudy`.
+> **Your repo is public.** That's fine for this code — there are no secrets in it, and `assets/config.js` holds only placeholders. But it does mean the repository must stay scoped to the `website` folder. Your book drafts live in the folder *above* it and are not tracked; keep it that way. If you'd rather not think about it, switch the repo to Private in **Settings → General → Danger Zone → Change visibility** — cloning still works, step 4 covers the token.
 
 ---
 
@@ -115,11 +101,13 @@ Or with a sudo user: `ssh youruser@129.121.123.192`
 
 ```bash
 sudo mkdir -p /opt && cd /opt
-sudo git clone https://github.com/YOURNAME/restaurant-casestudy.git
+sudo git clone https://github.com/u2berclubstudio/Restaurant-casestudy.git restaurant-casestudy
 cd restaurant-casestudy
 ```
 
-**If the repo is private,** GitHub will ask for credentials and reject your password. Use a token instead:
+The repo is public, so this needs no credentials.
+
+**If you later switch the repo to private,** GitHub will ask for credentials and reject your password. Use a token instead:
 
 1. On GitHub: **Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token**
 2. Tick only the **`repo`** scope. Set an expiry you're comfortable with.
@@ -127,7 +115,7 @@ cd restaurant-casestudy
 4. Clone using it:
 
 ```bash
-sudo git clone https://YOURNAME:ghp_yourtokenhere@github.com/YOURNAME/restaurant-casestudy.git
+sudo git clone https://u2berclubstudio:ghp_yourtokenhere@github.com/u2berclubstudio/Restaurant-casestudy.git restaurant-casestudy
 ```
 
 The token is then stored in the clone's remote URL, so future pulls work without re-entering it.
