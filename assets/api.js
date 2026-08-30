@@ -87,7 +87,7 @@
     },
 
     login: function (email, password) {
-      return request('/collections/users/records/auth-with-password', {
+      return request('/collections/users/auth-with-password', {
         method: 'POST', auth: false, body: { identity: email, password: password }
       }).then(function (res) {
         Auth.save(res.token, res.record);
@@ -103,7 +103,7 @@
     /** Verify the stored token is still valid and refresh the cached user. */
     refresh: function () {
       if (!Auth.token()) return Promise.resolve(null);
-      return request('/collections/users/records/auth-refresh', { method: 'POST' })
+      return request('/collections/users/auth-refresh', { method: 'POST' })
         .then(function (res) { Auth.save(res.token, res.record); return res.record; })
         .catch(function () { Auth.clear(); return null; });
     },
