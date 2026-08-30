@@ -1,6 +1,6 @@
 # Restaurant Casestudy
 
-Eight working tools for restaurant owners, with an outlet-based freemium model. Plain static site — no build step, no server, no dependencies.
+Eight working tools for restaurant owners, with accounts, per-user permissions and an admin panel. Static frontend (no build step) plus a PocketBase backend for auth and data.
 
 **Run it:** open `index.html`.
 
@@ -22,8 +22,11 @@ compare.html    Side-by-side outlet comparison (Pro)
 about.html      Positioning and the data stance
 privacy.html    What is stored and where
 404.html        Branded not-found page
+login / signup / forgot / reset / account.html
+admin.html      Staff panel — users, permissions, content, leads, announcements
 t/*.html        The eight tool pages
 deploy/         VPS deployment — configs, scripts and the walkthrough
+backend/        PocketBase schema, permission hooks and installer
 ```
 
 ## Tools
@@ -45,52 +48,59 @@ deploy/         VPS deployment — configs, scripts and the walkthrough
 
 **Pro** — unlimited outlets, side-by-side comparison, PDF report export, industry benchmarks, saved snapshots with version history.
 
-Gating lives in `Plan.require(feature, cb)` in `assets/engine.js`. Free users hitting a Pro feature get an upgrade dialog rather than a dead button.
+Plans and per-tool access are set in the admin panel and enforced server-side by `backend/pb_hooks/rcs.pb.js`. The interface reads the same answers to decide what to show, but the API refuses anything the account isn't entitled to — `curl` gets the same 403 the browser does.
 
-**Pro preview.** Until real checkout exists, visitors can switch Pro on locally to see what it does. It is clearly labelled as a preview, charges nothing, and only affects that browser. Set `allowProPreview: false` in `assets/config.js` once payments are live.
+**Guests** can still use whatever the admin marks Public or Preview, with answers kept in their own browser. That's the on-ramp to signing up.
 
 ## Configure
 
-Everything you need is in `assets/config.js`:
+Most day-to-day settings now live in the **admin panel** — homepage copy, section visibility, tool permissions, plans, announcements. No file editing, no redeploy.
+
+`assets/config.js` holds only what the admin panel can't:
 
 ```js
+apiBase: '/api',        // where PocketBase is proxied
 pricing: {
-  monthly: null,        // set a number and it renders; null shows "Coming soon"
-  yearly:  null,
+  monthly: null,        // fallback; the admin panel overrides
   checkoutUrl: null     // Razorpay / Stripe / Lemon Squeezy
 },
-leadEndpoint: null,     // POST target for {email, source, at}
-allowProPreview: true,
-freeOutlets: 1
+leadEndpoint: null      // optional mirror of captured emails to a form service
 ```
 
-**Email capture.** With `leadEndpoint: null` addresses only sit in the visitor's browser. Point it at anything accepting a JSON POST — Formspree, Getform, Basin, a Zapier webhook into Sheets or Mailchimp, or a Netlify Function. The `source` field tells you where each address came from (`pricing-notify`, `tool:break-even`, …).
+**Captured emails** now go to the backend automatically and are visible under Admin → Leads with CSV export. `leadEndpoint` is only for also mirroring them somewhere else.
 
-## What is still front-end only
+## What is and isn't enforced
 
-There is no backend. Consequences worth knowing before launch:
+**Enforced on the server** — cannot be bypassed from a browser:
 
-- **Plan state is local.** Anyone can flip themselves to Pro via devtools. Fine for validating demand; needs real auth plus a server check before you charge.
-- **Data does not sync** across devices, and is lost if the visitor clears browsing data. Every tool pushes PDF export for this reason.
-- **No accounts.** Emails are captured, but there is no login.
+- Reading or writing any worksheet (tool access is checked on every create and update)
+- Reading anyone else's data (every query is scoped to the authenticated user)
+- The outlet limit
+- Self-promotion — a hook reverts `plan`, `suspended` and `tool_overrides` on self-updates
+- Every admin route checks `plan = "staff"`
 
-When you add a backend, the seams are already in the right places: `Account` and `Plan` in `engine.js` are the two objects to swap.
+**Interface only:** the tool *page* is a static file, so anyone can download `/t/menu.html` and run the calculator locally. They cannot save it, sync it, or reach any other account's data. To lock the files themselves, add nginx `auth_request` — the token is already mirrored to an `rcs_auth` cookie for that.
 
 ## Architecture
 
 ```
 assets/app.css        Design system — deep red (#c41230) on white
-assets/engine.js      Schema renderer, outlets, plans, gating, benchmarks, snapshots
-assets/config.js      The only file you normally edit
+assets/engine.js      Schema renderer, outlets, gating, sync, benchmarks, snapshots
+assets/api.js         Auth + data client (dependency-free, no CDN)
+assets/admin.js       The admin panel
+assets/config.js      Endpoint and pricing fallbacks
 assets/tools/*.js     One declarative schema per tool
+backend/              PocketBase schema, permission hooks, installer
 ```
 
 Each tool is a single object. Field types: `text` · `number` · `money` · `date` · `textarea` · `select` · `radio` · `checks` · `ratings` · `table` (repeating rows with computed columns) · `info`.
 
 A section can carry `metrics(data)` for live figures. Each tool has `result(data)` returning `{score, band, flags}`, and optionally `benchmarks(data)` returning Pro-only comparison rows. Copy `purpose.js` for a simple tool, `break-even.js` for a calculator-heavy one.
 
-Storage keys are namespaced `rcs:` — `tool:<outletId>:<slug>`, `snap:<outletId>:<slug>`, plus `outlets`, `activeOutlet`, `plan`, `index`, `account`.
+Signed-in users' worksheets live in the `worksheets` collection keyed by user + outlet + tool. Guests fall back to `localStorage` under the `rcs:` prefix, which also acts as the offline cache when the API is unreachable.
 
 ## Verified
 
-Headless tests cover all fourteen pages: no JS errors anywhere, every internal link resolves, Free correctly locks benchmarks/export/extra outlets while Pro unlocks them, and the calculators reproduce their reference figures — ₹417 fixed cost per trading hour, 28 customers/day break-even at 60% contribution margin, ₹1,529 in-house occasion-package profit against a ₹1,151 loss when outsourced.
+Headless tests cover all 21 pages against four account states (guest, free, pro, staff): no JS errors anywhere, every internal link resolves, the permission gate returns exactly the right state for each tool and account combination, worksheets sync for signed-in users and never for guests, and a non-staff account hitting `/admin.html` is blocked.
+
+The calculators still reproduce their reference figures — ₹417 fixed cost per trading hour, 28 customers/day break-even at 60% contribution margin, ₹1,529 in-house occasion-package profit against a ₹1,151 loss when outsourced.
