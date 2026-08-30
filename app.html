@@ -87,6 +87,30 @@ window.TOOL_META = [{"slug": "purpose", "icon": "🪞", "title": "The Purpose Ch
 window.PAGE_INIT = function () {
   var A = window.App, el = A.el;
   var outlet = A.Outlets.active();
+
+  // A brand new account has no outlet yet. Ask for one rather than throwing.
+  if (!outlet) {
+    document.getElementById('outlet-title').textContent = 'Add your restaurant';
+    document.getElementById('outlet-meta').textContent =
+      'Your worksheets are grouped by outlet, so this comes first. It takes a few seconds.';
+    document.getElementById('summary').innerHTML = '';
+    var hint = document.getElementById('empty-hint');
+    if (hint) {
+      hint.innerHTML =
+        '<div class="panel" style="text-align:center;padding:38px 22px">' +
+        '<h3 style="margin-bottom:8px">One thing before the tools</h3>' +
+        '<p style="color:var(--muted-2);max-width:44ch;margin:0 auto 18px">' +
+        'Name the restaurant you are planning or running. Everything you enter is saved against it, ' +
+        'so you can come back to it from any device.</p>' +
+        '<button class="btn btn-primary" id="first-outlet">Add your outlet</button></div>';
+      hint.classList.remove('hidden');
+      document.getElementById('first-outlet').addEventListener('click', function () { A.Outlets.add(); });
+    }
+    var dash = document.getElementById('dash');
+    if (dash) dash.innerHTML = '';
+    return;
+  }
+
   var idx = (A.store.get('index', {}) || {})[outlet.id] || {};
 
   document.getElementById('outlet-title').textContent = outlet.name;

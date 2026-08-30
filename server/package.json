@@ -1,0 +1,21 @@
+{
+  "name": "restaurant-casestudy-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API for Restaurant Casestudy — accounts, per-user tool permissions, worksheet sync",
+  "main": "index.js",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test/run-tests.js",
+    "test:e2e": "node test/run-frontend-tests.js",
+    "test:all": "node test/run-tests.js && node test/run-frontend-tests.js",
+    "admin": "node make-admin.js"
+  },
+  "comment": "SQLite comes from Node itself (node:sqlite), so there is no native module to compile. express is the only dependency, and it is pure JavaScript. better-sqlite3 is used automatically if you choose to install it, but nothing requires it.",
+  "dependencies": {
+    "express": "^4.21.1"
+  }
+}

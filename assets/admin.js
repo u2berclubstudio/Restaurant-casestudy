@@ -136,7 +136,27 @@
         '</select></div>';
     }).join('');
 
+    el('umNewPass').value = '';
     el('userModal').classList.add('on');
+  }
+
+  /** Set someone's password for them — the recovery path while there is no reset email. */
+  function setUserPassword() {
+    var e = state.editing;
+    if (!e) return;
+    var pw = el('umNewPass').value;
+    if (pw.length < 8) { toast('Password must be at least 8 characters', true); return; }
+    if (!confirm('Set a new password for ' + e.email + '?\n\nThey will be signed out everywhere, and you must tell them the new password yourself.')) return;
+
+    el('umSetPass').disabled = true;
+    API.Admin.setUserPassword(e.id, pw).then(function () {
+      toast('Password set for ' + e.email);
+      el('umNewPass').value = '';
+      el('umSetPass').disabled = false;
+    }).catch(function (err) {
+      toast(err.message, true);
+      el('umSetPass').disabled = false;
+    });
   }
 
   function saveUser() {
@@ -320,11 +340,16 @@
         clearTimeout(window._us);
         window._us = setTimeout(function () { loadUsers(el('userSearch').value.trim()); }, 320);
       });
-      el('saveTools').addEventListener('click', saveTools);
-      el('saveContent').addEventListener('click', saveContent);
-      el('saveAnnounce').addEventListener('click', saveAnnouncement);
-      el('umSave').addEventListener('click', saveUser);
-      el('umClose').addEventListener('click', function () { el('userModal').classList.remove('on'); });
+      // Some controls only exist when their feature is switched on, so every
+      // binding is optional. One missing button must not stop the panel loading.
+      function on(id, fn) { var n = el(id); if (n) n.addEventListener('click', fn); }
+
+      on('saveTools', saveTools);
+      on('saveContent', saveContent);
+      on('saveAnnounce', saveAnnouncement);
+      on('umSave', saveUser);
+      on('umSetPass', setUserPassword);
+      on('umClose', function () { el('userModal').classList.remove('on'); });
       el('userModal').addEventListener('click', function (e) {
         if (e.target === el('userModal')) el('userModal').classList.remove('on');
       });

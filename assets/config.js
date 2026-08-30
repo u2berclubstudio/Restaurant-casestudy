@@ -9,7 +9,7 @@ window.APP_CONFIG = {
   tagline: 'Run your restaurant on numbers, not hope.',
 
   /* ---- Backend -----------------------------------------------------------
-     PocketBase is proxied at /api by nginx. Change only if you move it.     */
+     The Node API is proxied at /api by nginx. Change only if you move it.    */
   apiBase: '/api',
 
   /* ---- Pricing -----------------------------------------------------------

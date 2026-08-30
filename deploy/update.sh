@@ -45,15 +45,22 @@ fi
 
 info "Syncing to $SITE_DIR…"
 if command -v rsync >/dev/null 2>&1; then
+  # 'server' must never reach the web root — it holds the backend source and
+  # node_modules, and everything under the web root is publicly readable.
   rsync -a --delete \
         --exclude '.git' --exclude '.gitignore' --exclude 'deploy' \
-        --exclude 'README.md' --exclude '.DS_Store' \
+        --exclude 'server' --exclude 'backend' \
+        --exclude 'README.md' --exclude 'GO-LIVE.md' --exclude '.DS_Store' \
         "$REPO_DIR"/ "$SITE_DIR"/
 else
   find "$SITE_DIR" -mindepth 1 -delete
-  (cd "$REPO_DIR" && tar --exclude=.git --exclude=deploy --exclude=README.md \
+  (cd "$REPO_DIR" && tar --exclude=.git --exclude=deploy --exclude=server \
+       --exclude=backend --exclude=README.md --exclude=GO-LIVE.md \
        --exclude=.gitignore --exclude=.DS_Store -cf - .) | (cd "$SITE_DIR" && tar -xf -)
 fi
+
+# Belt and braces: if an older deploy already put them there, take them away.
+rm -rf "$SITE_DIR/server" "$SITE_DIR/backend" "$SITE_DIR/deploy"
 
 WEBUSER="www-data"; id -u nginx >/dev/null 2>&1 && WEBUSER="nginx"
 chown -R "$WEBUSER":"$WEBUSER" "$SITE_DIR"

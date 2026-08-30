@@ -1,6 +1,6 @@
 # Restaurant Casestudy
 
-Eight working tools for restaurant owners, with accounts, per-user permissions and an admin panel. Static frontend (no build step) plus a PocketBase backend for auth and data.
+Eight working tools for restaurant owners, with accounts, per-user permissions and an admin panel. Static frontend (no build step) plus a small Node + SQLite backend for auth and data.
 
 **Run it:** open `index.html`.
 
@@ -8,7 +8,7 @@ Eight working tools for restaurant owners, with accounts, per-user permissions a
 
 **Deploy it to a VPS:** see [`deploy/DEPLOY.md`](deploy/DEPLOY.md) — GitHub Desktop → clone on server → one setup script. Safe on a box that already hosts other sites.
 
-**Accounts, permissions and admin:** see [`backend/README-BACKEND.md`](backend/README-BACKEND.md).
+**Accounts, permissions and admin:** see [`server/README.md`](server/README.md).
 
 **Deploy it anywhere else:** drag this folder onto [netlify.com/drop](https://app.netlify.com/drop), or connect it to Netlify / Vercel / Cloudflare Pages with an empty build command.
 
@@ -26,7 +26,7 @@ login / signup / forgot / reset / account.html
 admin.html      Staff panel — users, permissions, content, leads, announcements
 t/*.html        The eight tool pages
 deploy/         VPS deployment — configs, scripts and the walkthrough
-backend/        PocketBase schema, permission hooks and installer
+server/         Node API — auth, permissions, data, installer and tests
 ```
 
 ## Tools
@@ -48,7 +48,7 @@ backend/        PocketBase schema, permission hooks and installer
 
 **Pro** — unlimited outlets, side-by-side comparison, PDF report export, industry benchmarks, saved snapshots with version history.
 
-Plans and per-tool access are set in the admin panel and enforced server-side by `backend/pb_hooks/rcs.pb.js`. The interface reads the same answers to decide what to show, but the API refuses anything the account isn't entitled to — `curl` gets the same 403 the browser does.
+Plans and per-tool access are set in the admin panel and enforced server-side by `server/auth.js` and `server/app.js`. The interface reads the same answers to decide what to show, but the API refuses anything the account isn't entitled to — `curl` gets the same 403 the browser does.
 
 **Guests** can still use whatever the admin marks Public or Preview, with answers kept in their own browser. That's the on-ramp to signing up.
 
@@ -59,7 +59,7 @@ Most day-to-day settings now live in the **admin panel** — homepage copy, sect
 `assets/config.js` holds only what the admin panel can't:
 
 ```js
-apiBase: '/api',        // where PocketBase is proxied
+apiBase: '/api',        // where the Node API is proxied
 pricing: {
   monthly: null,        // fallback; the admin panel overrides
   checkoutUrl: null     // Razorpay / Stripe / Lemon Squeezy
@@ -90,14 +90,14 @@ assets/api.js         Auth + data client (dependency-free, no CDN)
 assets/admin.js       The admin panel
 assets/config.js      Endpoint and pricing fallbacks
 assets/tools/*.js     One declarative schema per tool
-backend/              PocketBase schema, permission hooks, installer
+server/               Node API — auth, permissions, data, tests
 ```
 
 Each tool is a single object. Field types: `text` · `number` · `money` · `date` · `textarea` · `select` · `radio` · `checks` · `ratings` · `table` (repeating rows with computed columns) · `info`.
 
 A section can carry `metrics(data)` for live figures. Each tool has `result(data)` returning `{score, band, flags}`, and optionally `benchmarks(data)` returning Pro-only comparison rows. Copy `purpose.js` for a simple tool, `break-even.js` for a calculator-heavy one.
 
-Signed-in users' worksheets live in the `worksheets` collection keyed by user + outlet + tool. Guests fall back to `localStorage` under the `rcs:` prefix, which also acts as the offline cache when the API is unreachable.
+Signed-in users' worksheets live in the `worksheets` table keyed by user + outlet + tool. Guests fall back to `localStorage` under the `rcs:` prefix, which also acts as the offline cache when the API is unreachable.
 
 ## Verified
 

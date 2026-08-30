@@ -1,7 +1,11 @@
 /* ==========================================================================
    Restaurant Casestudy — API client
-   A small dependency-free PocketBase client. No CDN, no build step, so the
+
+   Talks to the Node backend in server/. Dependency-free and no CDN, so the
    Content-Security-Policy stays tight.
+
+   The API.Auth / API.Data / API.Admin surface is deliberately unchanged from
+   the previous backend, so engine.js and admin.js did not need touching.
    ========================================================================== */
 (function (global) {
   'use strict';
@@ -27,23 +31,17 @@
     return fetch(BASE + path, {
       method: opts.method || 'GET',
       headers: headers,
-      body: opts.body ? JSON.stringify(opts.body) : undefined
+      body: opts.body === undefined ? undefined : JSON.stringify(opts.body)
     }).then(function (res) {
       var ct = res.headers.get('content-type') || '';
       var parse = ct.indexOf('application/json') > -1 ? res.json() : res.text();
       return parse.then(function (data) {
         if (res.ok) return data;
-        var msg = (data && (data.message || data.error)) || ('Request failed (' + res.status + ')');
-        // Field-level validation messages are far more useful than the summary.
-        if (data && data.data) {
-          var first = Object.keys(data.data)[0];
-          if (first && data.data[first] && data.data[first].message) {
-            msg = data.data[first].message;
-          }
-        }
+        var msg = (data && data.message) || ('Request failed (' + res.status + ')');
         var err = new Error(msg);
         err.status = res.status;
         err.data = data;
+        // A dead session should not leave the interface pretending otherwise.
         if (res.status === 401 && opts.auth !== false) Auth.clear();
         throw err;
       });
@@ -61,8 +59,8 @@
     save: function (token, user) {
       lset('token', token);
       lset('user', user);
-      // A cookie lets the server-side proxy see auth too, if you later add
-      // nginx auth_request. SameSite=Lax keeps it off cross-site requests.
+      // Mirrored to a cookie so nginx could gate static files with auth_request
+      // later. SameSite=Lax keeps it off cross-site requests.
       try {
         document.cookie = 'rcs_auth=' + encodeURIComponent(token) +
           ';path=/;max-age=1209600;SameSite=Lax' + (location.protocol === 'https:' ? ';Secure' : '');
@@ -70,70 +68,76 @@
     },
 
     clear: function () {
-      ldel('token'); ldel('user');
+      ldel('token'); ldel('user'); ldel('boot_cache');
       try { document.cookie = 'rcs_auth=;path=/;max-age=0;SameSite=Lax'; } catch (e) {}
     },
 
     signup: function (email, password, extra) {
-      var body = {
-        email: email, password: password, passwordConfirm: password,
-        name: (extra && extra.name) || '',
-        restaurant: (extra && extra.restaurant) || '',
-        city: (extra && extra.city) || '',
-        emailVisibility: false
-      };
-      return request('/collections/users/records', { method: 'POST', body: body, auth: false })
-        .then(function () { return Auth.login(email, password); });
+      return request('/auth/signup', {
+        method: 'POST', auth: false,
+        body: {
+          email: email, password: password,
+          name: (extra && extra.name) || '',
+          restaurant: (extra && extra.restaurant) || '',
+          city: (extra && extra.city) || ''
+        }
+      }).then(function (res) {
+        Auth.save(res.token, res.user);
+        return res.user;
+      });
     },
 
     login: function (email, password) {
-      return request('/collections/users/auth-with-password', {
-        method: 'POST', auth: false, body: { identity: email, password: password }
+      return request('/auth/login', {
+        method: 'POST', auth: false, body: { email: email, password: password }
       }).then(function (res) {
-        Auth.save(res.token, res.record);
-        return res.record;
+        Auth.save(res.token, res.user);
+        return res.user;
       });
     },
 
     logout: function () {
-      Auth.clear();
-      return Promise.resolve();
+      return request('/auth/logout', { method: 'POST' })
+        .catch(function () {})          // signing out locally matters more
+        .then(function () { Auth.clear(); });
     },
 
     /** Verify the stored token is still valid and refresh the cached user. */
     refresh: function () {
       if (!Auth.token()) return Promise.resolve(null);
-      return request('/collections/users/auth-refresh', { method: 'POST' })
-        .then(function (res) { Auth.save(res.token, res.record); return res.record; })
-        .catch(function () { Auth.clear(); return null; });
+      return request('/auth/me')
+        .then(function (res) { lset('user', res.user); return res.user; })
+        .catch(function (err) {
+          // Only a rejected session should sign you out. A network blip or a
+          // restarting server must not wipe a valid login.
+          if (err && err.status === 401) { Auth.clear(); return null; }
+          return Auth.user();
+        });
     },
 
-    requestReset: function (email) {
-      return request('/collections/users/request-password-reset', {
-        method: 'POST', auth: false, body: { email: email }
-      });
+    requestReset: function () {
+      return Promise.reject(new Error(
+        'Password resets by email are not set up yet. Email ' +
+        'honestdigitalmarketer@gmail.com and your password will be reset for you.'
+      ));
     },
 
-    confirmReset: function (token, password) {
-      return request('/collections/users/confirm-password-reset', {
-        method: 'POST', auth: false,
-        body: { token: token, password: password, passwordConfirm: password }
-      });
+    confirmReset: function () {
+      return Promise.reject(new Error('Password resets by email are not set up yet.'));
     },
 
     updateProfile: function (fields) {
-      var u = Auth.user();
-      if (!u) return Promise.reject(new Error('Not signed in'));
-      return request('/collections/users/records/' + u.id, { method: 'PATCH', body: fields })
-        .then(function (rec) { lset('user', rec); return rec; });
+      return request('/auth/profile', { method: 'PATCH', body: fields })
+        .then(function (res) { lset('user', res.user); return res.user; });
     },
 
     changePassword: function (oldPassword, newPassword) {
-      var u = Auth.user();
-      if (!u) return Promise.reject(new Error('Not signed in'));
-      return request('/collections/users/records/' + u.id, {
-        method: 'PATCH',
-        body: { oldPassword: oldPassword, password: newPassword, passwordConfirm: newPassword }
+      return request('/auth/password', {
+        method: 'POST', body: { current: oldPassword, next: newPassword }
+      }).then(function (res) {
+        // The server invalidates every other session, so take the fresh token.
+        if (res && res.token) lset('token', res.token);
+        return res;
       });
     }
   };
@@ -142,7 +146,7 @@
   var _boot = null;
   function bootstrap(force) {
     if (_boot && !force) return _boot;
-    _boot = request('/rcs/bootstrap')
+    _boot = request('/bootstrap')
       .then(function (data) {
         if (data.user) lset('user', data.user);
         lset('boot_cache', { at: Date.now(), data: data });
@@ -159,7 +163,7 @@
   }
 
   function access(slug) {
-    return request('/rcs/access/' + encodeURIComponent(slug))
+    return request('/access/' + encodeURIComponent(slug))
       .catch(function () {
         // If the API is unreachable, fall back to the cached bootstrap answer.
         var cached = ls('boot_cache', null);
@@ -174,66 +178,59 @@
   /* ----------------------------------------------------------------- data */
   var Data = {
     outlets: function () {
-      return request('/collections/outlets/records?perPage=200&sort=created&filter=' +
-        encodeURIComponent('archived != true'))
-        .then(function (r) { return r.items || []; });
+      return request('/outlets').then(function (r) { return r.items || []; });
     },
     createOutlet: function (o) {
-      var u = Auth.user();
-      return request('/collections/outlets/records', {
+      return request('/outlets', {
         method: 'POST',
-        body: { user: u.id, name: o.name, city: o.city || '', format: o.format || '' }
+        body: { name: o.name, city: o.city || '', format: o.format || '' }
       });
     },
     updateOutlet: function (id, fields) {
-      return request('/collections/outlets/records/' + id, { method: 'PATCH', body: fields });
+      return request('/outlets/' + id, { method: 'PATCH', body: fields });
     },
     deleteOutlet: function (id) {
-      return request('/collections/outlets/records/' + id, { method: 'DELETE' });
+      return request('/outlets/' + id, { method: 'DELETE' });
     },
 
     worksheets: function (outletId) {
-      return request('/collections/worksheets/records?perPage=200&filter=' +
-        encodeURIComponent('outlet = "' + outletId + '"'))
+      return request('/worksheets?outlet=' + encodeURIComponent(outletId))
         .then(function (r) { return r.items || []; });
     },
     getWorksheet: function (outletId, tool) {
-      return request('/collections/worksheets/records?perPage=1&filter=' +
-        encodeURIComponent('outlet = "' + outletId + '" && tool = "' + tool + '"'))
-        .then(function (r) { return (r.items && r.items[0]) || null; });
+      return Data.worksheets(outletId).then(function (items) {
+        return items.filter(function (w) { return w.tool === tool; })[0] || null;
+      });
     },
+    // One call: the server decides whether to insert or update.
     saveWorksheet: function (outletId, tool, payload) {
-      var u = Auth.user();
-      return Data.getWorksheet(outletId, tool).then(function (existing) {
-        var body = {
-          user: u.id, outlet: outletId, tool: tool,
+      return request('/worksheets', {
+        method: 'PUT',
+        body: {
+          outlet: outletId, tool: tool,
           data: payload.data, progress: payload.progress || 0,
           score: payload.score || 0, band: payload.band || ''
-        };
-        return existing
-          ? request('/collections/worksheets/records/' + existing.id, { method: 'PATCH', body: body })
-          : request('/collections/worksheets/records', { method: 'POST', body: body });
+        }
       });
     },
 
     snapshots: function (outletId, tool) {
-      return request('/collections/snapshots/records?perPage=50&sort=-created&filter=' +
-        encodeURIComponent('outlet = "' + outletId + '" && tool = "' + tool + '"'))
+      return request('/snapshots?outlet=' + encodeURIComponent(outletId) +
+                     '&tool=' + encodeURIComponent(tool))
         .then(function (r) { return r.items || []; });
     },
     createSnapshot: function (outletId, tool, label, score, data) {
-      var u = Auth.user();
-      return request('/collections/snapshots/records', {
+      return request('/snapshots', {
         method: 'POST',
-        body: { user: u.id, outlet: outletId, tool: tool, label: label, score: score, data: data }
+        body: { outlet: outletId, tool: tool, label: label, score: score, data: data }
       });
     },
     deleteSnapshot: function (id) {
-      return request('/collections/snapshots/records/' + id, { method: 'DELETE' });
+      return request('/snapshots/' + id, { method: 'DELETE' });
     },
 
     lead: function (email, source, note) {
-      return request('/collections/leads/records', {
+      return request('/leads', {
         method: 'POST', auth: false,
         body: { email: email, source: source || 'site', note: note || '' }
       });
@@ -241,44 +238,39 @@
 
     event: function (type, tool) {
       if (!Auth.isIn()) return Promise.resolve();
-      var u = Auth.user();
-      return request('/collections/events/records', {
-        method: 'POST', body: { user: u.id, type: type, tool: tool || '' }
-      }).catch(function () {});   // analytics must never break a page
+      return request('/events', { method: 'POST', body: { type: type, tool: tool || '' } })
+        .catch(function () {});   // analytics must never break a page
     }
   };
 
   /* ---------------------------------------------------------------- admin */
   var Admin = {
-    overview: function () { return request('/rcs/admin/overview'); },
-    users: function (q) { return request('/rcs/admin/users' + (q ? '?q=' + encodeURIComponent(q) : '')); },
+    overview: function () { return request('/admin/overview'); },
+    users: function (q) { return request('/admin/users' + (q ? '?q=' + encodeURIComponent(q) : '')); },
     saveUser: function (id, fields) {
-      return request('/rcs/admin/user/' + id, { method: 'POST', body: fields });
+      return request('/admin/user/' + id, { method: 'POST', body: fields });
     },
-    leads: function () { return request('/rcs/admin/leads'); },
-    leadsCsvUrl: function () { return BASE + '/rcs/admin/leads?format=csv'; },
+    /** Set a user's password for them — the recovery path while there is no email. */
+    setUserPassword: function (id, password) {
+      return request('/admin/user/' + id + '/password', {
+        method: 'POST', body: { password: password }
+      });
+    },
+    leads: function () { return request('/admin/leads'); },
+    leadsCsvUrl: function () { return BASE + '/admin/leads?format=csv'; },
     saveTools: function (items) {
-      return request('/rcs/admin/tools', { method: 'POST', body: { items: items } });
-    },
-    saveContent: function (items) {
-      return request('/rcs/admin/content', { method: 'POST', body: { items: items } });
-    },
-    contentAll: function () {
-      return request('/collections/site_content/records?perPage=300&sort=position')
-        .then(function (r) { return r.items || []; });
+      return request('/admin/tools', { method: 'POST', body: { items: items } });
     },
     toolsAll: function () {
-      return request('/collections/tools/records?perPage=100&sort=position')
-        .then(function (r) { return r.items || []; });
+      return request('/admin/tools').then(function (r) { return r.items || []; });
     },
-    saveAnnouncement: function (a) {
-      return request('/rcs/admin/announcement', { method: 'POST', body: a });
-    },
-    announcement: function () {
-      return request('/collections/announcements/records?perPage=1&sort=-created')
-        .then(function (r) { return (r.items && r.items[0]) || null; })
-        .catch(function () { return null; });
-    }
+
+    // Homepage copy and announcements are edited in the HTML for now. These
+    // stay so admin.js keeps working; they simply have nothing to manage.
+    contentAll: function () { return Promise.resolve([]); },
+    saveContent: function () { return Promise.resolve({ ok: true }); },
+    announcement: function () { return Promise.resolve(null); },
+    saveAnnouncement: function () { return Promise.resolve({ ok: true }); }
   };
 
   global.API = {

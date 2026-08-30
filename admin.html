@@ -123,14 +123,12 @@
 
     <!-- CONTENT -->
     <section data-panel="content" class="hidden">
-      <div class="callout" style="margin-bottom:18px">
-        <strong>What logged-out visitors see.</strong> Edit the homepage copy and switch whole sections on or off without touching files or redeploying.
+      <div class="callout warn" style="margin-bottom:18px">
+        <strong>Homepage editing isn't switched on yet.</strong>
+        The headline, statistics and section text currently live in <code>index.html</code>, so changing them means editing that file and deploying.
+        Say the word and this tab becomes a set of text boxes that save instantly — it was left out of the first version to keep the moving parts down.
       </div>
       <div id="contentPanels"></div>
-      <div class="sticky-save">
-        <button class="btn btn-primary" id="saveContent">Save homepage</button>
-        <span style="color:var(--muted);font-size:13.5px">Visitors see the change on their next page load.</span>
-      </div>
     </section>
 
     <!-- LEADS -->
@@ -196,6 +194,17 @@
       <textarea id="umNote" rows="2" placeholder="Only you see this"></textarea></div>
 
     <button class="btn btn-primary btn-block" id="umSave">Save changes</button>
+
+    <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line)">
+      <label class="field-label" for="umNewPass">Set a new password for them</label>
+      <p style="color:var(--muted);font-size:13.5px;margin:-4px 0 10px">
+        Use this when someone is locked out. It signs them out everywhere, so tell them the new password yourself.
+      </p>
+      <div class="form-row">
+        <input type="text" id="umNewPass" placeholder="At least 8 characters" autocomplete="off">
+        <button class="btn btn-ghost" id="umSetPass" style="white-space:nowrap">Set password</button>
+      </div>
+    </div>
   </div>
 </div>
 
