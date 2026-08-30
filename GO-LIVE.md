@@ -167,7 +167,11 @@ Superuser email [honestdigitalmarketer@gmail.com]:
 Superuser password (min 10 chars):
 ```
 
-Type a password. **At least 10 characters.** Nothing appears on screen — keep typing anyway, then press Enter.
+Type a password. **At least 10 characters.**
+
+> 💡 **Use only letters and numbers** — no quotes, backslashes or symbols. Passwords are passed between several programs here and punctuation causes avoidable trouble. Something like `RestaurantDB2026` is fine.
+
+Nothing appears on screen as you type — keep going, then press Enter.
 
 📝 **Write this password down somewhere safe.** This is your emergency master key to the database.
 
@@ -184,7 +188,7 @@ Staff email [honestdigitalmarketer@gmail.com]:
 Staff password (min 8 chars):
 ```
 
-Type a **different** password. At least 8 characters. Press Enter.
+Type a **different** password. At least 8 characters — again, letters and numbers only. Press Enter.
 
 📝 **Write this one down too.** This is the one you'll use every day to log into your admin panel.
 
@@ -209,7 +213,7 @@ Type a **different** password. At least 8 characters. Press Enter.
 
 ❌ **If it stopped with a red ✗** — copy everything in the Terminal window, paste it to me, and I'll tell you exactly what to do. Nothing is broken; the script undoes its own changes if anything fails.
 
-> **Re-running the installer?** It's safe. But when it asks for the superuser password the second time, **enter the same one you used before** — the account already exists and it just needs to sign in. If you've forgotten it, the guide's troubleshooting section at the bottom shows how to reset it.
+> **Re-running the installer?** Completely safe, and you don't need to remember the old superuser password — whatever you type becomes the new one.
 
 ---
 

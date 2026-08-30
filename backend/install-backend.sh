@@ -222,24 +222,57 @@ if [[ $SKIP_SEED -eq 0 ]]; then
   read -r -s -p "  Superuser password (min 10 chars): " SU_PASS; echo
   [[ ${#SU_PASS} -ge 10 ]] || die "Password too short."
 
+  # Create if new, otherwise force the password to what was just typed. Doing
+  # both means a re-run always ends with an account we can actually sign in to.
   systemctl stop "$SERVICE"
-  sudo -u pocketbase "$PB_DIR/pocketbase" admin create "$SU_EMAIL" "$SU_PASS" --dir="$PB_DIR/pb_data" >/dev/null 2>&1 \
-    && ok "Superuser created" \
-    || info "Superuser already exists — signing in to it"
+  if sudo -u pocketbase "$PB_DIR/pocketbase" admin create "$SU_EMAIL" "$SU_PASS" --dir="$PB_DIR/pb_data" >/tmp/pb-admin.log 2>&1; then
+    ok "Superuser created"
+  else
+    info "Superuser exists — setting its password to the one you just entered"
+    sudo -u pocketbase "$PB_DIR/pocketbase" admin update "$SU_EMAIL" "$SU_PASS" --dir="$PB_DIR/pb_data" >/tmp/pb-admin.log 2>&1 \
+      || { cat /tmp/pb-admin.log >&2; die "Could not create or update the superuser — log above."; }
+    ok "Superuser password set"
+  fi
   systemctl start "$SERVICE"
-  sleep 3
 
-  TOKEN=$(curl -fsS -X POST "$API/api/admins/auth-with-password" \
-    -H 'Content-Type: application/json' \
-    -d "{\"identity\":\"$SU_EMAIL\",\"password\":\"$SU_PASS\"}" 2>/dev/null \
-    | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])' 2>/dev/null) || TOKEN=""
+  # Wait for it to actually answer, rather than guessing with a fixed sleep.
+  for i in $(seq 1 20); do
+    curl -fsS "$API/api/health" >/dev/null 2>&1 && break
+    sleep 1
+  done
+  curl -fsS "$API/api/health" >/dev/null 2>&1 || {
+    journalctl -u "$SERVICE" -n 25 --no-pager >&2
+    die "PocketBase is not responding on $API — log above."
+  }
+
+  # Build the JSON with python so passwords containing " \ $ or ' can't break it.
+  AUTH_BODY=$(SU_EMAIL="$SU_EMAIL" SU_PASS="$SU_PASS" python3 -c \
+    'import json,os;print(json.dumps({"identity":os.environ["SU_EMAIL"],"password":os.environ["SU_PASS"]}))')
+
+  TOKEN=""
+  for attempt in 1 2 3; do
+    RESP=$(curl -sS -X POST "$API/api/admins/auth-with-password" \
+      -H 'Content-Type: application/json' --data-binary "$AUTH_BODY" 2>/dev/null || echo '')
+    TOKEN=$(printf '%s' "$RESP" | python3 -c \
+      'import sys,json
+try: print(json.load(sys.stdin).get("token",""))
+except Exception: print("")' 2>/dev/null)
+    [[ -n "$TOKEN" ]] && break
+    sleep 2
+  done
+
   if [[ -z "$TOKEN" ]]; then
+    echo >&2
+    echo "  Server said:" >&2
+    printf '  %s\n' "${RESP:0:500}" >&2
+    echo >&2
     die "Could not sign in as superuser.
-      The account exists but that password was wrong. Either re-run and use the
-      original password, or reset it with:
+      Reset the password by hand and re-run — use a password with only letters
+      and numbers to rule out any shell-escaping problem:
         systemctl stop $SERVICE
-        sudo -u pocketbase $PB_DIR/pocketbase admin update $SU_EMAIL NEWPASSWORD --dir=$PB_DIR/pb_data
-        systemctl start $SERVICE"
+        sudo -u pocketbase $PB_DIR/pocketbase admin update $SU_EMAIL NewPassword123 --dir=$PB_DIR/pb_data
+        systemctl start $SERVICE
+        bash backend/install-backend.sh"
   fi
   ok "Signed in as superuser"
 
