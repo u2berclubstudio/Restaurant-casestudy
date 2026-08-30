@@ -4,7 +4,11 @@ Eight working tools for restaurant owners, with an outlet-based freemium model. 
 
 **Run it:** open `index.html`.
 
+**Going live, step by step:** see [`GO-LIVE.md`](GO-LIVE.md) — the complete beginner walkthrough, every click and command.
+
 **Deploy it to a VPS:** see [`deploy/DEPLOY.md`](deploy/DEPLOY.md) — GitHub Desktop → clone on server → one setup script. Safe on a box that already hosts other sites.
+
+**Accounts, permissions and admin:** see [`backend/README-BACKEND.md`](backend/README-BACKEND.md).
 
 **Deploy it anywhere else:** drag this folder onto [netlify.com/drop](https://app.netlify.com/drop), or connect it to Netlify / Vercel / Cloudflare Pages with an empty build command.
 
