@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Node (only if you later add tooling — the site itself needs none)
+node_modules/
+npm-debug.log*
+
+# Local env / secrets — never commit these
+.env
+.env.*
+*.pem
+*.key
+
+# Nothing outside this folder is part of the site.
+# The repo root is /website, so the book drafts sitting beside it
+# are never picked up by Git. Keep it that way.
