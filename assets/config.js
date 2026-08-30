@@ -1,40 +1,39 @@
 /* ==========================================================================
    Restaurant Casestudy — configuration
    This is the only file you need to edit to wire the product up.
+   Most day-to-day settings now live in the admin panel instead: /admin.html
    ========================================================================== */
 window.APP_CONFIG = {
 
   product: 'Restaurant Casestudy',
   tagline: 'Run your restaurant on numbers, not hope.',
 
+  /* ---- Backend -----------------------------------------------------------
+     PocketBase is proxied at /api by nginx. Change only if you move it.     */
+  apiBase: '/api',
+
   /* ---- Pricing -----------------------------------------------------------
-     Set these when you've decided. Anything left as null renders as
-     "Pricing coming soon" rather than a fake number.                        */
+     These are fallbacks. Once the backend is running, the admin panel's
+     Pricing fields override them.                                          */
   pricing: {
     monthly: null,          // e.g. 799
     yearly: null,           // e.g. 7999
     currency: '₹',
-    yearlyNote: null,       // e.g. 'Two months free'
-    checkoutUrl: null,      // Razorpay / Stripe / Lemon Squeezy link
+    yearlyNote: null,
+    checkoutUrl: null,      // Razorpay / Stripe / Lemon Squeezy
     trialDays: 14
   },
 
   /* ---- Email capture -----------------------------------------------------
-     POST target receiving JSON {email, source, at}.
-     Works with Formspree, Getform, Basin, a Zapier hook, a Netlify Function.
-     Leave null and addresses are only kept in the visitor's own browser.     */
+     Leads now go to the backend automatically. Set this only if you ALSO
+     want them mirrored to an external form service.                        */
   leadEndpoint: null,
 
   /* ---- Pro preview -------------------------------------------------------
-     While there is no payment backend, visitors can switch Pro features on
-     locally to see what they do. It is clearly labelled as a preview and
-     charges nothing. Set to false once real checkout is live.                */
-  allowProPreview: true,
-
-  /* ---- Plan limits -------------------------------------------------------
-     Free covers one outlet and every tool. Pro lifts the outlet cap and
-     unlocks export, benchmarks, snapshots and comparison.                    */
-  freeOutlets: 1,
+     Was a local unlock while there was no backend. Now that plans are
+     enforced server-side, leave this off — it can no longer bypass anything
+     that matters, and it only confuses the interface.                      */
+  allowProPreview: false,
 
   /* ---- Contact -----------------------------------------------------------*/
   email: 'honestdigitalmarketer@gmail.com',
@@ -47,7 +46,7 @@ document.addEventListener('DOMContentLoaded', function () {
   Array.prototype.forEach.call(document.querySelectorAll('[data-price]'), function (n) {
     var which = n.getAttribute('data-price');
     var v = p[which];
-    if (v === null || v === undefined) return;          // leave the placeholder
+    if (v === null || v === undefined) return;
     n.innerHTML = p.currency + Number(v).toLocaleString('en-IN') +
       (which === 'monthly' ? '<small>/month</small>' : '<small>/year</small>');
   });

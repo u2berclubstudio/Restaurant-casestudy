@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My account · Restaurant Casestudy</title>
+<meta name="description" content="Manage your Restaurant Casestudy account.">
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./assets/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23c41230%22/><text x=%2250%22 y=%2272%22 font-size=%2262%22 font-family=%22Georgia,serif%22 font-weight=%22bold%22 fill=%22white%22 text-anchor=%22middle%22>R</text></svg>">
+</head>
+<body>
+<div data-announce></div>
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="./index.html">
+      <span class="mark">R</span>
+      <span class="brand-txt">Restaurant Casestudy<small>Run on numbers, not hope</small></span>
+    </a>
+    <nav class="site-nav" data-nav>
+      <a href="./index.html#tools">Tools</a>
+      <a href="./pricing.html">Pricing</a>
+      <a class="ghost" href="./app.html">Dashboard</a>
+      <a class="cta" href="./login.html">Sign in</a>
+    </nav>
+  </div>
+</header>
+
+<style>
+.acct{display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start;padding:36px 0 80px}
+@media(max-width:900px){.acct{grid-template-columns:1fr}}
+.msg{padding:12px 14px;border-radius:var(--r-sm);font-size:14px;margin-bottom:16px;display:none}
+.msg.on{display:block}
+.msg.err{background:var(--bad-soft);border:1px solid var(--bad-line);color:var(--bad)}
+.msg.ok{background:var(--good-soft);border:1px solid var(--good-line);color:var(--good)}
+.tool-access-list{display:flex;flex-direction:column;gap:8px}
+.tal-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg-2)}
+.tal-row .n{font-size:14.5px;display:flex;gap:9px;align-items:center}
+.pill{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:4px 9px;border-radius:100px}
+.pill.full{background:var(--good-soft);color:var(--good)}
+.pill.preview{background:var(--warn-soft);color:var(--warn)}
+.pill.none{background:var(--bad-soft);color:var(--bad)}
+</style>
+
+<section class="section-sm">
+  <div class="wrap">
+    <p class="kicker">Account</p>
+    <h1 style="font-size:clamp(1.7rem,3.4vw,2.3rem)" id="hi">Your account</h1>
+    <div class="acct">
+      <div>
+        <div class="panel" style="margin-bottom:16px">
+          <h3 style="margin-bottom:16px">Profile</h3>
+          <div class="msg" id="pmsg"></div>
+          <form id="pf">
+            <div class="grid-2">
+              <div class="field"><label class="field-label" for="name">Name</label><input type="text" id="name"></div>
+              <div class="field"><label class="field-label" for="city">City</label><input type="text" id="city"></div>
+            </div>
+            <div class="field"><label class="field-label" for="restaurant">Restaurant</label><input type="text" id="restaurant"></div>
+            <div class="field"><label class="field-label">Email</label><input type="email" id="email" disabled style="opacity:.6"></div>
+            <button class="btn btn-primary" type="submit">Save profile</button>
+          </form>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px">
+          <h3 style="margin-bottom:16px">Password</h3>
+          <div class="msg" id="wmsg"></div>
+          <form id="wf">
+            <div class="grid-2">
+              <div class="field"><label class="field-label" for="oldpw">Current password</label><input type="password" id="oldpw" autocomplete="current-password" required></div>
+              <div class="field"><label class="field-label" for="newpw">New password</label><input type="password" id="newpw" autocomplete="new-password" minlength="8" required></div>
+            </div>
+            <button class="btn btn-ghost" type="submit">Change password</button>
+          </form>
+        </div>
+
+        <div class="panel">
+          <h3 style="margin-bottom:6px">Your tool access</h3>
+          <p style="color:var(--muted);font-size:14px;margin-bottom:16px">What your plan and account currently allow.</p>
+          <div class="tool-access-list" id="tal"></div>
+        </div>
+      </div>
+
+      <aside style="display:flex;flex-direction:column;gap:14px">
+        <div class="progress-card">
+          <h4>Plan</h4>
+          <div style="font-family:var(--serif);font-size:1.9rem;line-height:1" id="plan">—</div>
+          <p class="pct" id="planNote" style="margin-top:6px"></p>
+          <a class="btn btn-primary btn-sm btn-block" href="pricing.html" style="margin-top:12px" id="planCta">See Pro</a>
+        </div>
+        <div class="progress-card">
+          <h4>Outlets</h4>
+          <div style="font-family:var(--serif);font-size:1.9rem;line-height:1" id="outlets">—</div>
+          <p class="pct" id="outletNote" style="margin-top:6px"></p>
+          <a class="btn btn-ghost btn-sm btn-block" href="app.html" style="margin-top:12px">Open dashboard</a>
+        </div>
+        <div class="progress-card" id="staffCard" style="display:none">
+          <h4>Staff</h4>
+          <a class="btn btn-dark btn-sm btn-block" href="admin.html">Open admin panel</a>
+        </div>
+        <div class="progress-card">
+          <h4>Session</h4>
+          <button class="btn btn-ghost btn-sm btn-block" id="out">Sign out</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<script>
+window.PAGE_INIT = function () {
+  if (!API.Auth.isIn()) { location.href = 'login.html?next=account.html'; return; }
+
+  function show(el, cls, text) { el.className = 'msg ' + cls + ' on'; el.textContent = text; }
+
+  API.Auth.refresh().then(function (u) {
+    if (!u) { location.href = 'login.html'; return; }
+    document.getElementById('hi').textContent = u.name ? 'Hello, ' + u.name : 'Your account';
+    document.getElementById('name').value = u.name || '';
+    document.getElementById('city').value = u.city || '';
+    document.getElementById('restaurant').value = u.restaurant || '';
+    document.getElementById('email').value = u.email || '';
+
+    var planNames = { free: 'Free', pro: 'Pro', staff: 'Staff' };
+    document.getElementById('plan').textContent = planNames[u.plan] || u.plan;
+    document.getElementById('planNote').textContent =
+      u.plan === 'free' ? 'One outlet, tools on the free tier'
+      : u.plan === 'pro' ? 'Unlimited outlets, every tool' : 'Full access to everything';
+    if (u.plan !== 'free') document.getElementById('planCta').style.display = 'none';
+    if (u.plan === 'staff') document.getElementById('staffCard').style.display = '';
+
+    API.Data.outlets().then(function (list) {
+      var lim = u.outlet_limit || (u.plan === 'free' ? 1 : 999);
+      document.getElementById('outlets').textContent = list.length + (lim < 900 ? ' / ' + lim : '');
+      document.getElementById('outletNote').textContent =
+        lim < 900 ? (list.length >= lim ? 'Limit reached — upgrade for more' : 'You can add more') : 'Unlimited';
+    });
+  });
+
+  API.bootstrap(true).then(function (b) {
+    var host = document.getElementById('tal');
+    host.innerHTML = (b.tools || []).map(function (t) {
+      var label = t.access === 'full' ? 'Full access' : t.access === 'preview' ? 'Preview only' : 'Locked';
+      return '<div class="tal-row"><span class="n"><span>' + (t.icon || '•') + '</span>' + t.title + '</span>' +
+        '<span class="pill ' + t.access + '">' + label + '</span></div>';
+    }).join('') || '<p style="color:var(--muted);font-size:14px;margin:0">Could not load your tool access.</p>';
+  });
+
+  document.getElementById('pf').addEventListener('submit', function (e) {
+    e.preventDefault();
+    API.Auth.updateProfile({
+      name: document.getElementById('name').value.trim(),
+      city: document.getElementById('city').value.trim(),
+      restaurant: document.getElementById('restaurant').value.trim()
+    }).then(function () { show(document.getElementById('pmsg'), 'ok', 'Profile saved.'); })
+      .catch(function (err) { show(document.getElementById('pmsg'), 'err', err.message); });
+  });
+
+  document.getElementById('wf').addEventListener('submit', function (e) {
+    e.preventDefault();
+    API.Auth.changePassword(document.getElementById('oldpw').value, document.getElementById('newpw').value)
+      .then(function () {
+        show(document.getElementById('wmsg'), 'ok', 'Password changed. Please sign in again.');
+        setTimeout(function () { API.Auth.logout().then(function () { location.href = 'login.html'; }); }, 1600);
+      })
+      .catch(function (err) {
+        show(document.getElementById('wmsg'), 'err',
+          /old/i.test(err.message) ? 'Your current password was not correct.' : err.message);
+      });
+  });
+
+  document.getElementById('out').addEventListener('click', function () {
+    API.Auth.logout().then(function () { location.href = 'index.html'; });
+  });
+};
+</script>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="brand" href="./index.html" style="margin-bottom:14px">
+          <span class="mark">R</span>
+          <span class="brand-txt">Restaurant Casestudy<small>Run on numbers, not hope</small></span>
+        </a>
+        <p style="max-width:34ch">Eight planning and operations tools for restaurant owners. Free for your first outlet, no card required.</p>
+      </div>
+      <div>
+        <h5>Tools</h5>
+        <ul>
+        <li><a href="./t/purpose.html">The Purpose Check</a></li>
+        <li><a href="./t/idea.html">The Idea Validator</a></li>
+        <li><a href="./t/location.html">Location Audit Scorecard</a></li>
+        <li><a href="./t/break-even.html">Budget & Break-Even Calculator</a></li>
+        <li><a href="./t/menu.html">Menu Engineering Sheet</a></li>
+        <li><a href="./t/sop.html">SOP Builder</a></li>
+        <li><a href="./t/marketing.html">90-Day Marketing Planner</a></li>
+        <li><a href="./t/revenue.html">Dead Hours Revenue Planner</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Product</h5>
+        <ul>
+          <li><a href="./app.html">Dashboard</a></li>
+          <li><a href="./pricing.html">Pricing</a></li>
+          <li><a href="./account.html">My account</a></li>
+          <li><a href="./index.html#faq">FAQ</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Company</h5>
+        <ul>
+          <li><a href="./about.html">About</a></li>
+          <li><a href="./privacy.html">Privacy</a></li>
+          <li><a href="mailto:honestdigitalmarketer@gmail.com">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-base">
+      <span>© <span id="yr">2026</span> Restaurant Casestudy</span>
+      <span>Signed-in worksheets sync to your account.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="./assets/config.js"></script>
+<script src="./assets/api.js"></script>
+<script src="./assets/engine.js"></script>
+<script>document.getElementById("yr").textContent=new Date().getFullYear();</script>
+</body>
+</html>

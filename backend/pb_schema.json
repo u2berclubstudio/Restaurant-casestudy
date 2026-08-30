@@ -1,0 +1,247 @@
+[
+  {
+    "id": "rcs_users_col01",
+    "name": "users",
+    "type": "auth",
+    "system": false,
+    "listRule": "id = @request.auth.id",
+    "viewRule": "id = @request.auth.id",
+    "createRule": "",
+    "updateRule": "id = @request.auth.id",
+    "deleteRule": null,
+    "options": {
+      "allowEmailAuth": true,
+      "allowOAuth2Auth": false,
+      "allowUsernameAuth": false,
+      "exceptEmailDomains": null,
+      "manageRule": null,
+      "minPasswordLength": 8,
+      "onlyEmailDomains": null,
+      "onlyVerified": false,
+      "requireEmail": true
+    },
+    "schema": [
+      { "name": "name", "type": "text", "required": false, "options": { "max": 120 } },
+      { "name": "restaurant", "type": "text", "required": false, "options": { "max": 160 } },
+      { "name": "city", "type": "text", "required": false, "options": { "max": 120 } },
+      {
+        "name": "plan", "type": "select", "required": true,
+        "options": { "maxSelect": 1, "values": ["free", "pro", "staff"] }
+      },
+      { "name": "plan_expires", "type": "date", "required": false, "options": {} },
+      { "name": "suspended", "type": "bool", "required": false, "options": {} },
+      {
+        "name": "tool_overrides", "type": "json", "required": false,
+        "options": { "maxSize": 4000 }
+      },
+      { "name": "outlet_limit", "type": "number", "required": false, "options": { "min": 1, "max": 500, "noDecimal": true } },
+      { "name": "admin_note", "type": "text", "required": false, "options": { "max": 2000 } },
+      { "name": "last_seen", "type": "date", "required": false, "options": {} }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_users_plan ON users (plan)",
+      "CREATE INDEX idx_users_suspended ON users (suspended)"
+    ]
+  },
+
+  {
+    "id": "rcs_tools_col001",
+    "name": "tools",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": null,
+    "updateRule": null,
+    "deleteRule": null,
+    "schema": [
+      { "name": "slug", "type": "text", "required": true, "unique": true, "options": { "max": 60 } },
+      { "name": "title", "type": "text", "required": true, "options": { "max": 120 } },
+      { "name": "icon", "type": "text", "required": false, "options": { "max": 8 } },
+      { "name": "blurb", "type": "text", "required": false, "options": { "max": 400 } },
+      { "name": "position", "type": "number", "required": false, "options": { "noDecimal": true } },
+      {
+        "name": "visibility", "type": "select", "required": true,
+        "options": {
+          "maxSelect": 1,
+          "values": ["public", "preview", "login", "pro", "invite", "hidden"]
+        }
+      },
+      { "name": "enabled", "type": "bool", "required": false, "options": {} },
+      { "name": "locked_message", "type": "text", "required": false, "options": { "max": 400 } }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX idx_tools_slug ON tools (slug)",
+      "CREATE INDEX idx_tools_position ON tools (position)"
+    ]
+  },
+
+  {
+    "id": "rcs_outlets_col01",
+    "name": "outlets",
+    "type": "base",
+    "listRule": "user = @request.auth.id",
+    "viewRule": "user = @request.auth.id",
+    "createRule": "@request.auth.id != '' && user = @request.auth.id && @request.auth.suspended != true",
+    "updateRule": "user = @request.auth.id",
+    "deleteRule": "user = @request.auth.id",
+    "schema": [
+      {
+        "name": "user", "type": "relation", "required": true,
+        "options": { "collectionId": "rcs_users_col01", "cascadeDelete": true, "maxSelect": 1 }
+      },
+      { "name": "name", "type": "text", "required": true, "options": { "max": 120 } },
+      { "name": "city", "type": "text", "required": false, "options": { "max": 120 } },
+      { "name": "format", "type": "text", "required": false, "options": { "max": 60 } },
+      { "name": "archived", "type": "bool", "required": false, "options": {} }
+    ],
+    "indexes": ["CREATE INDEX idx_outlets_user ON outlets (user)"]
+  },
+
+  {
+    "id": "rcs_worksheet_c1",
+    "name": "worksheets",
+    "type": "base",
+    "listRule": "user = @request.auth.id",
+    "viewRule": "user = @request.auth.id",
+    "createRule": "@request.auth.id != '' && user = @request.auth.id && @request.auth.suspended != true",
+    "updateRule": "user = @request.auth.id && @request.auth.suspended != true",
+    "deleteRule": "user = @request.auth.id",
+    "schema": [
+      {
+        "name": "user", "type": "relation", "required": true,
+        "options": { "collectionId": "rcs_users_col01", "cascadeDelete": true, "maxSelect": 1 }
+      },
+      {
+        "name": "outlet", "type": "relation", "required": true,
+        "options": { "collectionId": "rcs_outlets_col01", "cascadeDelete": true, "maxSelect": 1 }
+      },
+      { "name": "tool", "type": "text", "required": true, "options": { "max": 60 } },
+      { "name": "data", "type": "json", "required": false, "options": { "maxSize": 500000 } },
+      { "name": "progress", "type": "number", "required": false, "options": { "min": 0, "max": 100, "noDecimal": true } },
+      { "name": "score", "type": "number", "required": false, "options": { "min": 0, "max": 100, "noDecimal": true } },
+      { "name": "band", "type": "text", "required": false, "options": { "max": 60 } }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX idx_ws_unique ON worksheets (user, outlet, tool)",
+      "CREATE INDEX idx_ws_user ON worksheets (user)"
+    ]
+  },
+
+  {
+    "id": "rcs_snapshot_c1",
+    "name": "snapshots",
+    "type": "base",
+    "listRule": "user = @request.auth.id",
+    "viewRule": "user = @request.auth.id",
+    "createRule": "@request.auth.id != '' && user = @request.auth.id",
+    "updateRule": null,
+    "deleteRule": "user = @request.auth.id",
+    "schema": [
+      {
+        "name": "user", "type": "relation", "required": true,
+        "options": { "collectionId": "rcs_users_col01", "cascadeDelete": true, "maxSelect": 1 }
+      },
+      {
+        "name": "outlet", "type": "relation", "required": true,
+        "options": { "collectionId": "rcs_outlets_col01", "cascadeDelete": true, "maxSelect": 1 }
+      },
+      { "name": "tool", "type": "text", "required": true, "options": { "max": 60 } },
+      { "name": "label", "type": "text", "required": true, "options": { "max": 120 } },
+      { "name": "score", "type": "number", "required": false, "options": { "noDecimal": true } },
+      { "name": "data", "type": "json", "required": false, "options": { "maxSize": 500000 } }
+    ],
+    "indexes": ["CREATE INDEX idx_snap_user ON snapshots (user, tool)"]
+  },
+
+  {
+    "id": "rcs_content_col1",
+    "name": "site_content",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": null,
+    "updateRule": null,
+    "deleteRule": null,
+    "schema": [
+      { "name": "key", "type": "text", "required": true, "unique": true, "options": { "max": 80 } },
+      { "name": "value", "type": "text", "required": false, "options": { "max": 5000 } },
+      { "name": "group", "type": "text", "required": false, "options": { "max": 40 } },
+      { "name": "label", "type": "text", "required": false, "options": { "max": 160 } },
+      { "name": "hint", "type": "text", "required": false, "options": { "max": 300 } },
+      {
+        "name": "kind", "type": "select", "required": false,
+        "options": { "maxSelect": 1, "values": ["text", "textarea", "number", "bool"] }
+      },
+      { "name": "position", "type": "number", "required": false, "options": { "noDecimal": true } }
+    ],
+    "indexes": ["CREATE UNIQUE INDEX idx_content_key ON site_content (key)"]
+  },
+
+  {
+    "id": "rcs_announce_c1",
+    "name": "announcements",
+    "type": "base",
+    "listRule": "active = true",
+    "viewRule": "active = true",
+    "createRule": null,
+    "updateRule": null,
+    "deleteRule": null,
+    "schema": [
+      { "name": "message", "type": "text", "required": true, "options": { "max": 400 } },
+      { "name": "link_text", "type": "text", "required": false, "options": { "max": 60 } },
+      { "name": "link_url", "type": "text", "required": false, "options": { "max": 300 } },
+      {
+        "name": "tone", "type": "select", "required": false,
+        "options": { "maxSelect": 1, "values": ["info", "success", "warn"] }
+      },
+      { "name": "active", "type": "bool", "required": false, "options": {} },
+      {
+        "name": "audience", "type": "select", "required": false,
+        "options": { "maxSelect": 1, "values": ["everyone", "logged_out", "logged_in", "free", "pro"] }
+      }
+    ]
+  },
+
+  {
+    "id": "rcs_leads_col01",
+    "name": "leads",
+    "type": "base",
+    "listRule": null,
+    "viewRule": null,
+    "createRule": "",
+    "updateRule": null,
+    "deleteRule": null,
+    "schema": [
+      { "name": "email", "type": "email", "required": true, "options": {} },
+      { "name": "source", "type": "text", "required": false, "options": { "max": 80 } },
+      { "name": "note", "type": "text", "required": false, "options": { "max": 500 } }
+    ],
+    "indexes": ["CREATE INDEX idx_leads_created ON leads (created)"]
+  },
+
+  {
+    "id": "rcs_events_col01",
+    "name": "events",
+    "type": "base",
+    "listRule": null,
+    "viewRule": null,
+    "createRule": "@request.auth.id != '' && user = @request.auth.id",
+    "updateRule": null,
+    "deleteRule": null,
+    "schema": [
+      {
+        "name": "user", "type": "relation", "required": false,
+        "options": { "collectionId": "rcs_users_col01", "cascadeDelete": true, "maxSelect": 1 }
+      },
+      { "name": "tool", "type": "text", "required": false, "options": { "max": 60 } },
+      {
+        "name": "type", "type": "select", "required": true,
+        "options": { "maxSelect": 1, "values": ["tool_open", "tool_complete", "export", "signup", "login", "denied"] }
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_events_created ON events (created)",
+      "CREATE INDEX idx_events_tool ON events (tool)"
+    ]
+  }
+]

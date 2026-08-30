@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · Restaurant Casestudy</title>
+<meta name="description" content="Sign in to Restaurant Casestudy.">
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./assets/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23c41230%22/><text x=%2250%22 y=%2272%22 font-size=%2262%22 font-family=%22Georgia,serif%22 font-weight=%22bold%22 fill=%22white%22 text-anchor=%22middle%22>R</text></svg>">
+</head>
+<body>
+<div data-announce></div>
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="./index.html">
+      <span class="mark">R</span>
+      <span class="brand-txt">Restaurant Casestudy<small>Run on numbers, not hope</small></span>
+    </a>
+    <nav class="site-nav" data-nav>
+      <a href="./index.html#tools">Tools</a>
+      <a href="./pricing.html">Pricing</a>
+      <a class="ghost" href="./app.html">Dashboard</a>
+      <a class="cta" href="./login.html">Sign in</a>
+    </nav>
+  </div>
+</header>
+
+<style>
+.auth-wrap{max-width:430px;margin:0 auto;padding:60px 22px 80px}
+.auth-card{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:32px;box-shadow:var(--shadow)}
+.auth-card h1{font-size:1.7rem;margin-bottom:8px}
+.auth-card .sub{color:var(--muted);font-size:14.5px;margin-bottom:24px}
+.auth-card .field{margin-bottom:16px}
+.auth-alt{text-align:center;font-size:14px;color:var(--muted);margin-top:20px}
+.auth-alt a{color:var(--brand);font-weight:600;text-decoration:none}
+.msg{padding:12px 14px;border-radius:var(--r-sm);font-size:14px;margin-bottom:18px;display:none}
+.msg.on{display:block}
+.msg.err{background:var(--bad-soft);border:1px solid var(--bad-line);color:var(--bad)}
+.msg.ok{background:var(--good-soft);border:1px solid var(--good-line);color:var(--good)}
+</style>
+
+<div class="auth-wrap">
+  <div class="auth-card">
+    <h1>Welcome back</h1>
+    <p class="sub">Sign in to reach your outlets and saved worksheets.</p>
+    <div class="msg err" id="msg"></div>
+    <form id="f">
+      <div class="field">
+        <label class="field-label" for="email">Email</label>
+        <input type="email" id="email" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label class="field-label" for="pw">Password</label>
+        <input type="password" id="pw" autocomplete="current-password" required>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit" id="go">Sign in</button>
+    </form>
+    <p class="auth-alt"><a href="forgot.html">Forgot your password?</a></p>
+    <p class="auth-alt">No account yet? <a href="signup.html">Create one free</a></p>
+  </div>
+</div>
+
+<script>
+window.PAGE_INIT = function () {
+  var f = document.getElementById('f'), msg = document.getElementById('msg'), go = document.getElementById('go');
+  var next = new URLSearchParams(location.search).get('next') || 'app.html';
+  if (API.Auth.isIn()) { location.href = next; return; }
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    msg.className = 'msg err'; go.disabled = true; go.textContent = 'Signing in…';
+    API.Auth.login(document.getElementById('email').value.trim(), document.getElementById('pw').value)
+      .then(function () { API.Data.event('login'); location.href = next; })
+      .catch(function (err) {
+        msg.textContent = /auth|password|identity|credentials/i.test(err.message)
+          ? 'That email and password combination did not work.' : err.message;
+        msg.classList.add('on'); go.disabled = false; go.textContent = 'Sign in';
+      });
+  });
+};
+</script>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="brand" href="./index.html" style="margin-bottom:14px">
+          <span class="mark">R</span>
+          <span class="brand-txt">Restaurant Casestudy<small>Run on numbers, not hope</small></span>
+        </a>
+        <p style="max-width:34ch">Eight planning and operations tools for restaurant owners. Free for your first outlet, no card required.</p>
+      </div>
+      <div>
+        <h5>Tools</h5>
+        <ul>
+        <li><a href="./t/purpose.html">The Purpose Check</a></li>
+        <li><a href="./t/idea.html">The Idea Validator</a></li>
+        <li><a href="./t/location.html">Location Audit Scorecard</a></li>
+        <li><a href="./t/break-even.html">Budget & Break-Even Calculator</a></li>
+        <li><a href="./t/menu.html">Menu Engineering Sheet</a></li>
+        <li><a href="./t/sop.html">SOP Builder</a></li>
+        <li><a href="./t/marketing.html">90-Day Marketing Planner</a></li>
+        <li><a href="./t/revenue.html">Dead Hours Revenue Planner</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Product</h5>
+        <ul>
+          <li><a href="./app.html">Dashboard</a></li>
+          <li><a href="./pricing.html">Pricing</a></li>
+          <li><a href="./account.html">My account</a></li>
+          <li><a href="./index.html#faq">FAQ</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Company</h5>
+        <ul>
+          <li><a href="./about.html">About</a></li>
+          <li><a href="./privacy.html">Privacy</a></li>
+          <li><a href="mailto:honestdigitalmarketer@gmail.com">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-base">
+      <span>© <span id="yr">2026</span> Restaurant Casestudy</span>
+      <span>Signed-in worksheets sync to your account.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="./assets/config.js"></script>
+<script src="./assets/api.js"></script>
+<script src="./assets/engine.js"></script>
+<script>document.getElementById("yr").textContent=new Date().getFullYear();</script>
+</body>
+</html>

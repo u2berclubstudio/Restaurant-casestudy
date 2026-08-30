@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin · Restaurant Casestudy</title>
+<meta name="description" content="Admin panel.">
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./assets/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23c41230%22/><text x=%2250%22 y=%2272%22 font-size=%2262%22 font-family=%22Georgia,serif%22 font-weight=%22bold%22 fill=%22white%22 text-anchor=%22middle%22>R</text></svg>">
+</head>
+<body>
+<div data-announce></div>
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="./index.html">
+      <span class="mark">R</span>
+      <span class="brand-txt">Restaurant Casestudy<small>Run on numbers, not hope</small></span>
+    </a>
+    <nav class="site-nav" data-nav>
+      <a href="./index.html#tools">Tools</a>
+      <a href="./pricing.html">Pricing</a>
+      <a class="ghost" href="./app.html">Dashboard</a>
+      <a class="cta" href="./login.html">Sign in</a>
+    </nav>
+  </div>
+</header>
+
+<style>
+.admin-head{background:var(--ink);color:#fff;padding:22px 0}
+.admin-head .wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.admin-head h1{color:#fff;font-size:1.5rem}
+.admin-head .who{margin-left:auto;font-size:13.5px;color:#a9a9b8;display:flex;gap:12px;align-items:center}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:26px;overflow-x:auto;padding-top:8px}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:12px 16px;font-size:14.5px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tabs button:hover{color:var(--ink)}
+.tabs button.on{color:var(--brand);border-bottom-color:var(--brand)}
+.atable{width:100%;border-collapse:collapse;font-size:14px;background:#fff;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.atable th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:12px 14px;background:var(--bg-3);border-bottom:1px solid var(--line)}
+.atable td{padding:12px 14px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+.atable tr:last-child td{border-bottom:0}
+.atable td input[type=text]{padding:7px 10px;font-size:13.5px}
+.pill{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:4px 9px;border-radius:100px;background:var(--bg-3);color:var(--muted)}
+.pill.full{background:var(--good-soft);color:var(--good)}
+.pill.preview{background:var(--warn-soft);color:var(--warn)}
+.pill.none{background:var(--bad-soft);color:var(--bad)}
+.tal-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg-2);margin-bottom:7px}
+.tal-row .n{font-size:14px;display:flex;gap:8px;align-items:center}
+.bar{height:7px;background:var(--line-2);border-radius:100px;overflow:hidden}
+.bar span{display:block;height:100%;background:linear-gradient(90deg,var(--brand-2),var(--brand));border-radius:100px}
+.sticky-save{position:sticky;bottom:0;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:14px 0;margin-top:20px;display:flex;gap:10px;align-items:center}
+</style>
+
+<div class="admin-head">
+  <div class="wrap">
+    <h1>Admin</h1>
+    <span class="pro-pill on">Staff</span>
+    <div class="who"><span id="who">—</span><button class="btn btn-ghost btn-sm" id="signout" style="border-color:rgba(255,255,255,.25);color:#fff;background:transparent">Sign out</button></div>
+  </div>
+</div>
+
+<main class="hidden">
+  <div class="wrap" style="padding-bottom:80px">
+    <div class="tabs">
+      <button data-tab="overview" class="on">Overview</button>
+      <button data-tab="users">Users &amp; access</button>
+      <button data-tab="tools">Tool visibility</button>
+      <button data-tab="content">Homepage</button>
+      <button data-tab="leads">Leads</button>
+      <button data-tab="announce">Announcement</button>
+    </div>
+
+    <!-- OVERVIEW -->
+    <section data-panel="overview">
+      <div class="metrics" id="ovStats" style="margin-bottom:26px"></div>
+      <div class="panel">
+        <h3 style="margin-bottom:6px">Tool opens, last 30 days</h3>
+        <p style="color:var(--muted);font-size:14px;margin-bottom:18px">Recorded for signed-in users only.</p>
+        <div id="ovUsage"></div>
+      </div>
+    </section>
+
+    <!-- USERS -->
+    <section data-panel="users" class="hidden">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+        <input type="text" id="userSearch" placeholder="Search by email, name or restaurant…" style="max-width:360px">
+        <span style="color:var(--muted);font-size:13.5px">Grant or block individual tools per user, set their plan, or suspend them.</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="atable">
+          <thead><tr><th>User</th><th>Plan</th><th>Status</th><th>Tool overrides</th><th>Joined</th><th></th></tr></thead>
+          <tbody id="userRows"><tr><td colspan="6" style="color:var(--muted)">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TOOLS -->
+    <section data-panel="tools" class="hidden">
+      <div class="callout" style="margin-bottom:18px">
+        <strong>This is the master switch for every visitor.</strong> Per-user overrides on the Users tab beat whatever you set here.
+        <br><br>
+        <b>Public</b> — anyone, signed in or not &nbsp;·&nbsp;
+        <b>Preview</b> — anyone can try it, signing in is needed to save &nbsp;·&nbsp;
+        <b>Requires sign-in</b> — any account &nbsp;·&nbsp;
+        <b>Pro only</b> — paying accounts &nbsp;·&nbsp;
+        <b>Invite only</b> — nobody unless you grant it individually &nbsp;·&nbsp;
+        <b>Hidden</b> — off the site entirely
+      </div>
+      <div style="overflow-x:auto">
+        <table class="atable">
+          <thead><tr><th>Tool</th><th>Who can use it</th><th style="text-align:center">Enabled</th><th>Message when locked</th></tr></thead>
+          <tbody id="toolRows"></tbody>
+        </table>
+      </div>
+      <div class="sticky-save">
+        <button class="btn btn-primary" id="saveTools">Save tool settings</button>
+        <span style="color:var(--muted);font-size:13.5px">Takes effect immediately — no redeploy.</span>
+      </div>
+    </section>
+
+    <!-- CONTENT -->
+    <section data-panel="content" class="hidden">
+      <div class="callout" style="margin-bottom:18px">
+        <strong>What logged-out visitors see.</strong> Edit the homepage copy and switch whole sections on or off without touching files or redeploying.
+      </div>
+      <div id="contentPanels"></div>
+      <div class="sticky-save">
+        <button class="btn btn-primary" id="saveContent">Save homepage</button>
+        <span style="color:var(--muted);font-size:13.5px">Visitors see the change on their next page load.</span>
+      </div>
+    </section>
+
+    <!-- LEADS -->
+    <section data-panel="leads" class="hidden">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+        <span style="font-weight:600" id="leadCount">—</span>
+        <a class="btn btn-ghost btn-sm" id="csv" href="#" download>Download CSV</a>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="atable">
+          <thead><tr><th>Email</th><th>Where from</th><th>Captured</th></tr></thead>
+          <tbody id="leadRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ANNOUNCEMENT -->
+    <section data-panel="announce" class="hidden">
+      <div class="panel" style="max-width:640px">
+        <h3 style="margin-bottom:6px">Site-wide banner</h3>
+        <p style="color:var(--muted);font-size:14px;margin-bottom:20px">Appears above the header on every page. Useful for launches, maintenance windows or an offer.</p>
+        <div class="field"><label class="field-label" for="anMsg">Message</label><input type="text" id="anMsg" placeholder="Pro launches on Monday — founder pricing until then."></div>
+        <div class="grid-2">
+          <div class="field"><label class="field-label" for="anLinkText">Link text</label><input type="text" id="anLinkText" placeholder="See pricing"></div>
+          <div class="field"><label class="field-label" for="anLinkUrl">Link URL</label><input type="text" id="anLinkUrl" placeholder="/pricing.html"></div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label class="field-label" for="anTone">Style</label>
+            <select id="anTone"><option value="info">Information</option><option value="success">Good news</option><option value="warn">Warning</option></select></div>
+          <div class="field"><label class="field-label" for="anAudience">Who sees it</label>
+            <select id="anAudience">
+              <option value="everyone">Everyone</option><option value="logged_out">Logged-out visitors</option>
+              <option value="logged_in">Signed-in users</option><option value="free">Free plan only</option>
+              <option value="pro">Pro plan only</option></select></div>
+        </div>
+        <label class="check"><input type="checkbox" id="anActive"><span>Show this banner<em>Uncheck to hide without deleting it</em></span></label>
+        <button class="btn btn-primary" id="saveAnnounce" style="margin-top:16px">Save announcement</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- USER MODAL -->
+<div class="modal-bg" id="userModal">
+  <div class="modal wide">
+    <button class="close" id="umClose">&times;</button>
+    <h3 id="umTitle">User</h3>
+    <p>Overrides here beat the tool's general visibility setting.</p>
+
+    <div class="grid-2" style="margin-top:20px">
+      <div class="field"><label class="field-label" for="umPlan">Plan</label>
+        <select id="umPlan"><option value="free">Free</option><option value="pro">Pro</option><option value="staff">Staff (full admin)</option></select></div>
+      <div class="field"><label class="field-label" for="umLimit">Outlet limit</label>
+        <input type="number" id="umLimit" min="1" max="999"></div>
+    </div>
+
+    <label class="check risk" style="margin-bottom:16px"><input type="checkbox" id="umSuspended"><span>Suspend this account<em>Blocks sign-in and every tool. Their data is kept.</em></span></label>
+
+    <label class="field-label">Per-tool access</label>
+    <div id="umTools" style="margin-bottom:18px;max-height:320px;overflow:auto"></div>
+
+    <div class="field"><label class="field-label" for="umNote">Private note</label>
+      <textarea id="umNote" rows="2" placeholder="Only you see this"></textarea></div>
+
+    <button class="btn btn-primary btn-block" id="umSave">Save changes</button>
+  </div>
+</div>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="brand" href="./index.html" style="margin-bottom:14px">
+          <span class="mark">R</span>
+          <span class="brand-txt">Restaurant Casestudy<small>Run on numbers, not hope</small></span>
+        </a>
+        <p style="max-width:34ch">Eight planning and operations tools for restaurant owners. Free for your first outlet, no card required.</p>
+      </div>
+      <div>
+        <h5>Tools</h5>
+        <ul>
+        <li><a href="./t/purpose.html">The Purpose Check</a></li>
+        <li><a href="./t/idea.html">The Idea Validator</a></li>
+        <li><a href="./t/location.html">Location Audit Scorecard</a></li>
+        <li><a href="./t/break-even.html">Budget & Break-Even Calculator</a></li>
+        <li><a href="./t/menu.html">Menu Engineering Sheet</a></li>
+        <li><a href="./t/sop.html">SOP Builder</a></li>
+        <li><a href="./t/marketing.html">90-Day Marketing Planner</a></li>
+        <li><a href="./t/revenue.html">Dead Hours Revenue Planner</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Product</h5>
+        <ul>
+          <li><a href="./app.html">Dashboard</a></li>
+          <li><a href="./pricing.html">Pricing</a></li>
+          <li><a href="./account.html">My account</a></li>
+          <li><a href="./index.html#faq">FAQ</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Company</h5>
+        <ul>
+          <li><a href="./about.html">About</a></li>
+          <li><a href="./privacy.html">Privacy</a></li>
+          <li><a href="mailto:honestdigitalmarketer@gmail.com">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-base">
+      <span>© <span id="yr">2026</span> Restaurant Casestudy</span>
+      <span>Signed-in worksheets sync to your account.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="./assets/config.js"></script>
+<script src="./assets/api.js"></script>
+<script src="./assets/admin.js"></script>
+<script src="./assets/engine.js"></script>
+<script>document.getElementById("yr").textContent=new Date().getFullYear();</script>
+</body>
+</html>

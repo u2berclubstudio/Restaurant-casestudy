@@ -74,13 +74,20 @@
     return { root: bg, body: m, close: close };
   }
 
-  /* ---------------------------------------------------------------- plan */
+  /* ---------------------------------------------------------------- plan
+     The plan now comes from the signed-in account, and is enforced by the
+     server. What follows only decides what the interface shows — the API
+     refuses anything the account isn't entitled to regardless.            */
   var Plan = {
-    get: function () { return store.get('plan', 'free'); },
-    isPro: function () { return Plan.get() === 'pro'; },
-    set: function (p) { store.set('plan', p); render.chrome(); },
+    get: function () {
+      var u = global.API && API.Auth.user();
+      return u ? u.plan : 'guest';
+    },
+    isIn: function () { return !!(global.API && API.Auth.isIn()); },
+    isPro: function () { return !!(global.API && API.Auth.isPro()); },
+    isStaff: function () { return !!(global.API && API.Auth.isStaff()); },
 
-    /* Run cb if Pro; otherwise show the upgrade dialog. */
+    /* Run cb if entitled; otherwise explain what's needed. */
     require: function (feature, cb) {
       if (Plan.isPro()) { cb(); return; }
       Plan.upsell(feature);
@@ -88,6 +95,7 @@
 
     upsell: function (feature) {
       var f = FEATURES[feature] || { t: 'This is a Pro feature', d: '' };
+      var signedIn = Plan.isIn();
       var node = el('div');
       node.innerHTML =
         '<span class="pro-pill">Pro</span>' +
@@ -101,16 +109,15 @@
         '</ul>';
       var row = el('div', { class: 'form-row' });
       row.appendChild(el('a', { class: 'btn btn-primary btn-block', href: rootPath() + 'pricing.html', text: 'See Pro plans' }));
-      if (CFG.allowProPreview !== false) {
-        row.appendChild(el('button', {
-          class: 'btn btn-ghost btn-block', type: 'button',
-          text: 'Preview Pro on this device',
-          onclick: function () { Plan.set('pro'); mo.close(); toast('Pro preview on — this only affects this browser.'); setTimeout(function () { location.reload(); }, 700); }
+      if (!signedIn) {
+        row.appendChild(el('a', {
+          class: 'btn btn-ghost btn-block',
+          href: rootPath() + 'login.html?next=' + encodeURIComponent(location.pathname.replace(/^\//, '')),
+          text: 'Already have an account? Sign in'
         }));
-        row.appendChild(el('p', { class: 'form-note', text: 'The preview unlocks Pro features locally so you can see what they do. It is not a purchase and nothing is charged.' }));
       }
       node.appendChild(row);
-      var mo = modal({ node: node });
+      modal({ node: node });
     }
   };
 
@@ -122,35 +129,90 @@
     compare: { t: 'Compare outlets side by side', d: 'Two locations, one table. Rent ratio, footfall, competition and total score, lined up.' }
   };
 
-  /* ---------------------------------------------------------------- outlets */
+  /* ---------------------------------------------------------------- outlets
+     Signed in, outlets live on the server and follow you between devices.
+     Signed out, they stay in this browser so the tools still work without an
+     account. `_cache` keeps the read API synchronous either way; `load()`
+     fills it before anything renders.                                      */
   var Outlets = {
-    all: function () {
-      var list = store.get('outlets', null);
-      if (!list || !list.length) {
-        list = [{ id: uid(), name: 'My restaurant', city: '', format: '', at: Date.now() }];
-        store.set('outlets', list);
-        store.set('activeOutlet', list[0].id);
+    _cache: null,
+
+    load: function () {
+      // Only records with a real id are usable — anything else would silently
+      // produce worksheets that can never be saved.
+      function clean(list) {
+        return (Array.isArray(list) ? list : []).filter(function (o) { return o && o.id; });
       }
-      return list;
+
+      if (Plan.isIn()) {
+        return API.Data.outlets().then(function (list) {
+          var ok = clean(list);
+          if (ok.length) { Outlets._cache = ok; return ok; }
+          var u = API.Auth.user();
+          return API.Data.createOutlet({ name: (u && u.restaurant) || 'My restaurant' })
+            .then(function (o) {
+              Outlets._cache = clean([o]);
+              return Outlets._cache;
+            })
+            .catch(function () { Outlets._cache = []; return Outlets._cache; });
+        }).catch(function () {
+          Outlets._cache = clean(store.get('outlets', []));
+          return Outlets._cache;
+        });
+      }
+      var local = store.get('outlets', null);
+      if (!local || !local.length) {
+        local = [{ id: uid(), name: 'My restaurant', city: '', format: '', at: Date.now() }];
+        store.set('outlets', local);
+        store.set('activeOutlet', local[0].id);
+      }
+      Outlets._cache = local;
+      return Promise.resolve(local);
     },
+
+    all: function () { return Outlets._cache || []; },
+
     activeId: function () {
       var list = Outlets.all();
+      if (!list.length) return null;
       var id = store.get('activeOutlet', null);
       if (!id || !list.filter(function (o) { return o.id === id; }).length) {
         id = list[0].id; store.set('activeOutlet', id);
       }
       return id;
     },
+
     active: function () {
       var id = Outlets.activeId();
-      return Outlets.all().filter(function (o) { return o.id === id; })[0];
+      return Outlets.all().filter(function (o) { return o.id === id; })[0] || null;
     },
+
     setActive: function (id) { store.set('activeOutlet', id); location.reload(); },
-    limit: function () { return Plan.isPro() ? Infinity : 1; },
+
+    limit: function () {
+      var u = global.API && API.Auth.user();
+      if (!u) return 1;
+      if (u.plan === 'staff') return Infinity;
+      return u.outlet_limit || (u.plan === 'pro' ? 999 : 1);
+    },
     canAdd: function () { return Outlets.all().length < Outlets.limit(); },
 
     add: function () {
+      if (!Plan.isIn()) {
+        modal({
+          title: 'Create a free account first',
+          body: '<p>Outlets are saved to your account so they follow you between devices. It takes about twenty seconds and needs no card.</p>',
+          node: (function () {
+            var r = el('div', { class: 'form-row' });
+            r.appendChild(el('a', { class: 'btn btn-primary btn-block', href: rootPath() + 'signup.html', text: 'Create free account' }));
+            r.appendChild(el('a', { class: 'btn btn-ghost btn-block', href: rootPath() + 'login.html', text: 'Sign in' }));
+            return r;
+          })()
+        });
+        return;
+      }
       if (!Outlets.canAdd()) { Plan.upsell('outlets'); return; }
+
       var form = el('form');
       var name = el('input', { type: 'text', placeholder: 'e.g. Model Town branch', required: 'required' });
       var city = el('input', { type: 'text', placeholder: 'City or area' });
@@ -158,31 +220,48 @@
       ['QSR / Quick service', 'Café', 'Casual dining', 'Fine dining', 'Cloud kitchen', 'Food truck', 'Bakery / Dessert', 'Bar / Pub'].forEach(function (o) {
         fmt.appendChild(el('option', { value: o, text: o }));
       });
-      var row = el('div', { class: 'form-row' }, [
+      var btn = el('button', { class: 'btn btn-primary btn-block', type: 'submit', text: 'Create outlet' });
+      form.appendChild(el('div', { class: 'form-row' }, [
         el('label', { class: 'field-label', text: 'Outlet name' }), name,
         el('label', { class: 'field-label', style: 'margin-top:8px', text: 'City / area' }), city,
-        el('label', { class: 'field-label', style: 'margin-top:8px', text: 'Format' }), fmt,
-        el('button', { class: 'btn btn-primary btn-block', type: 'submit', text: 'Create outlet' })
-      ]);
-      form.appendChild(row);
-      var mo = modal({ title: 'New outlet', body: '<p>Each outlet keeps its own set of worksheets, so nothing gets mixed up between locations.</p>', node: form });
+        el('label', { class: 'field-label', style: 'margin-top:8px', text: 'Format' }), fmt, btn
+      ]));
+      var err = el('p', { class: 'form-note', style: 'color:var(--bad)' });
+      form.appendChild(err);
+      var mo = modal({ title: 'New outlet', body: '<p>Each outlet keeps its own set of worksheets, so nothing gets mixed between locations.</p>', node: form });
+
       form.addEventListener('submit', function (e) {
         e.preventDefault();
-        var list = Outlets.all();
-        var o = { id: uid(), name: name.value.trim() || 'Untitled outlet', city: city.value.trim(), format: fmt.value, at: Date.now() };
-        list.push(o); store.set('outlets', list); store.set('activeOutlet', o.id);
-        mo.close(); location.reload();
+        btn.disabled = true; btn.textContent = 'Creating…';
+        API.Data.createOutlet({
+          name: name.value.trim() || 'Untitled outlet',
+          city: city.value.trim(), format: fmt.value
+        }).then(function (o) {
+          store.set('activeOutlet', o.id);
+          mo.close(); location.reload();
+        }).catch(function (ex) {
+          err.textContent = ex.message;
+          btn.disabled = false; btn.textContent = 'Create outlet';
+        });
       });
       name.focus();
     },
 
     rename: function (id) {
-      var list = Outlets.all();
-      var o = list.filter(function (x) { return x.id === id; })[0];
+      var o = Outlets.all().filter(function (x) { return x.id === id; })[0];
       if (!o) return;
       var v = prompt('Rename this outlet', o.name);
       if (v === null) return;
-      o.name = v.trim() || o.name; store.set('outlets', list); location.reload();
+      var newName = v.trim() || o.name;
+      if (Plan.isIn()) {
+        API.Data.updateOutlet(id, { name: newName })
+          .then(function () { location.reload(); })
+          .catch(function (e) { toast(e.message); });
+      } else {
+        o.name = newName;
+        store.set('outlets', Outlets.all());
+        location.reload();
+      }
     },
 
     remove: function (id) {
@@ -190,19 +269,27 @@
       if (list.length < 2) { toast('You need at least one outlet.'); return; }
       var o = list.filter(function (x) { return x.id === id; })[0];
       if (!confirm('Delete "' + o.name + '" and all of its worksheets? This cannot be undone.')) return;
-      store.set('outlets', list.filter(function (x) { return x.id !== id; }));
-      store.keys().forEach(function (k) { if (k.indexOf('tool:' + id + ':') === 0 || k.indexOf('snap:' + id + ':') === 0) store.del(k); });
-      store.del('activeOutlet');
-      location.reload();
+      if (Plan.isIn()) {
+        API.Data.deleteOutlet(id).then(function () {
+          store.del('activeOutlet'); location.reload();
+        }).catch(function (e) { toast(e.message); });
+      } else {
+        store.set('outlets', list.filter(function (x) { return x.id !== id; }));
+        store.keys().forEach(function (k) {
+          if (k.indexOf('tool:' + id + ':') === 0 || k.indexOf('snap:' + id + ':') === 0) store.del(k);
+        });
+        store.del('activeOutlet');
+        location.reload();
+      }
     }
   };
 
-  /* ---------------------------------------------------------------- account */
+  /* ---------------------------------------------------------------- leads */
   var Account = {
-    get: function () { return store.get('account', null); },
     save: function (email, source) {
       var rec = { email: email, source: source || 'site', at: new Date().toISOString() };
       store.set('account', rec);
+      if (global.API) API.Data.lead(email, source).catch(function () {});
       if (CFG.leadEndpoint) {
         try {
           fetch(CFG.leadEndpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(function () {});
@@ -233,8 +320,45 @@
   /* ---------------------------------------------------------------- chrome */
   var render = {
     chrome: function () {
+      render.nav();
+      render.announcement();
       render.outletBar();
       render.planPills();
+    },
+
+    /* Header links change depending on who is signed in. */
+    nav: function () {
+      var nav = document.querySelector('[data-nav]');
+      if (!nav) return;
+      var r = rootPath();
+      var u = global.API && API.Auth.user();
+      var h = '<a href="' + r + 'index.html#tools">Tools</a>' +
+              '<a href="' + r + 'pricing.html">Pricing</a>';
+      if (u) {
+        if (u.plan === 'staff') h += '<a href="' + r + 'admin.html">Admin</a>';
+        h += '<a class="ghost" href="' + r + 'app.html">Dashboard</a>' +
+             '<a class="cta" href="' + r + 'account.html">' + esc((u.name || u.email || 'Account').split('@')[0]) + '</a>';
+      } else {
+        h += '<a href="' + r + 'login.html">Sign in</a>' +
+             '<a class="cta" href="' + r + 'signup.html">Start free</a>';
+      }
+      nav.innerHTML = h;
+    },
+
+    /* Site-wide banner, controlled from the admin panel. */
+    announcement: function () {
+      var host = document.querySelector('[data-announce]');
+      if (!host || !global.API) return;
+      API.bootstrap().then(function (b) {
+        var a = b && b.announcement;
+        if (!a || !a.message) { host.innerHTML = ''; return; }
+        var bg = a.tone === 'warn' ? 'var(--warn)' : a.tone === 'success' ? 'var(--good)' : 'var(--ink)';
+        host.innerHTML =
+          '<div style="background:' + bg + ';color:#fff;padding:10px 22px;text-align:center;font-size:14px">' +
+          esc(a.message) +
+          (a.link_url ? ' <a href="' + esc(a.link_url) + '" style="color:#fff;font-weight:700;text-decoration:underline">' +
+            esc(a.link_text || 'Read more') + '</a>' : '') + '</div>';
+      }).catch(function () {});
     },
 
     planPills: function () {
@@ -267,9 +391,10 @@
         chips.appendChild(c);
       });
       var pro = Plan.isPro();
+      var canAdd = Outlets.canAdd();
       chips.appendChild(el('button', {
         class: 'chip add', type: 'button',
-        html: (pro ? '+ Add outlet' : '+ Add outlet <span class="lock">🔒 Pro</span>'),
+        html: canAdd ? '+ Add outlet' : '+ Add outlet <span class="lock">🔒 Pro</span>',
         onclick: function () { Outlets.add(); }
       }));
       if (Outlets.all().length > 1) {
@@ -279,37 +404,121 @@
         }));
       }
       wrap.appendChild(chips);
+
       var right = el('div', { style: 'margin-left:auto;display:flex;gap:8px;align-items:center' });
-      right.appendChild(el('span', { class: 'pro-pill' + (pro ? ' on' : ''), text: pro ? 'Pro' : 'Free' }));
-      if (!pro) right.appendChild(el('a', { class: 'btn btn-outline btn-sm', href: rootPath() + 'pricing.html', text: 'Upgrade' }));
+      var label = !Plan.isIn() ? 'Guest' : (Plan.isStaff() ? 'Staff' : pro ? 'Pro' : 'Free');
+      right.appendChild(el('span', { class: 'pro-pill' + (pro ? ' on' : ''), text: label }));
+      if (!Plan.isIn()) {
+        right.appendChild(el('a', { class: 'btn btn-outline btn-sm', href: rootPath() + 'signup.html', text: 'Save my work' }));
+      } else if (!pro) {
+        right.appendChild(el('a', { class: 'btn btn-outline btn-sm', href: rootPath() + 'pricing.html', text: 'Upgrade' }));
+      }
       wrap.appendChild(right);
       host.appendChild(wrap);
+    },
+
+    /* Apply admin-editable copy and section toggles to the homepage. */
+    content: function () {
+      if (!global.API) return;
+      API.bootstrap().then(function (b) {
+        var c = (b && b.content) || {};
+        Object.keys(c).forEach(function (key) {
+          Array.prototype.forEach.call(document.querySelectorAll('[data-content="' + key + '"]'), function (n) {
+            if (c[key]) n.textContent = c[key];
+          });
+        });
+        Object.keys(c).forEach(function (key) {
+          Array.prototype.forEach.call(document.querySelectorAll('[data-show="' + key + '"]'), function (n) {
+            n.classList.toggle('hidden', c[key] === 'false');
+          });
+        });
+        // Tool cards reflect the visibility rules set in the admin panel.
+        if (b && b.tools && b.tools.length) {
+          var bySlug = {};
+          b.tools.forEach(function (t) { bySlug[t.slug] = t; });
+          Array.prototype.forEach.call(document.querySelectorAll('.tool-card[data-tool]'), function (card) {
+            var t = bySlug[card.getAttribute('data-tool')];
+            if (!t) return;
+            if (t.visibility === 'hidden' || !t.enabled) { card.classList.add('hidden'); return; }
+            if (t.access === 'none') {
+              card.appendChild(el('span', {
+                class: 'done-flag',
+                style: 'background:var(--bad-soft);color:var(--bad);border-color:var(--bad-line)',
+                text: t.visibility === 'pro' ? 'Pro' : 'Locked'
+              }));
+            } else if (t.access === 'preview') {
+              card.appendChild(el('span', {
+                class: 'done-flag',
+                style: 'background:var(--warn-soft);color:var(--warn);border-color:var(--warn-line)',
+                text: 'Preview'
+              }));
+            }
+          });
+        }
+      }).catch(function () {});
     }
   };
 
   /* ---------------------------------------------------------------- Tool */
-  function Tool(schema, mount) {
+  function Tool(schema, mount, opts) {
+    opts = opts || {};
     this.s = schema;
     this.outlet = Outlets.active();
-    this.key = 'tool:' + this.outlet.id + ':' + schema.id;
-    this.data = store.get(this.key, {});
+    this.access = opts.access || 'full';           // 'full' | 'preview'
+    this.key = 'tool:' + (this.outlet ? this.outlet.id : 'local') + ':' + schema.id;
+    // Server data wins when signed in; local storage is the offline fallback.
+    this.data = opts.data || store.get(this.key, {});
     this.mount = mount;
     this.save = debounce(this._save.bind(this), 240);
+    this.syncToServer = debounce(this._syncToServer.bind(this), 1400);
     this.render();
   }
 
   Tool.prototype._save = function () {
     store.set(this.key, this.data);
     var idx = store.get('index', {});
-    idx[this.outlet.id] = idx[this.outlet.id] || {};
+    var oid = this.outlet ? this.outlet.id : 'local';
+    idx[oid] = idx[oid] || {};
     var r = this.s.result(this.data, this) || {};
-    idx[this.outlet.id][this.s.id] = {
-      p: this.progress(), at: Date.now(),
-      score: this.progress() ? Math.round(r.score || 0) : null,
-      band: this.progress() ? (r.band && r.band.label) : null,
-      color: this.progress() ? (r.band && r.band.color) : null
+    var p = this.progress();
+    idx[oid][this.s.id] = {
+      p: p, at: Date.now(),
+      score: p ? Math.round(r.score || 0) : null,
+      band: p ? (r.band && r.band.label) : null,
+      color: p ? (r.band && r.band.color) : null
     };
     store.set('index', idx);
+    if (Plan.isIn() && this.access === 'full' && this.outlet) this.syncToServer();
+  };
+
+  /* Push the worksheet to the account. Failures are surfaced quietly rather
+     than thrown, so a dropped connection never costs the user their typing —
+     it stays in local storage and syncs on the next successful save. */
+  Tool.prototype._syncToServer = function () {
+    var self = this;
+    var r = this.s.result(this.data, this) || {};
+    var p = this.progress();
+    this.setSyncState('saving');
+    API.Data.saveWorksheet(this.outlet.id, this.s.id, {
+      data: this.data, progress: p,
+      score: p ? Math.round(r.score || 0) : 0,
+      band: p ? ((r.band && r.band.label) || '') : ''
+    }).then(function () { self.setSyncState('saved'); })
+      .catch(function (err) { self.setSyncState('error', err.message); });
+  };
+
+  Tool.prototype.setSyncState = function (state, msg) {
+    var n = document.querySelector('[data-sync]');
+    if (!n) return;
+    var map = {
+      saving: ['Saving…', 'var(--muted)'],
+      saved: ['✓ Saved to your account', 'var(--good)'],
+      error: [msg || 'Could not save — kept on this device', 'var(--bad)'],
+      local: ['Saved in this browser only', 'var(--muted)']
+    };
+    var s = map[state] || map.local;
+    n.textContent = s[0];
+    n.style.color = s[1];
   };
 
   Tool.prototype.set = function (id, v) { this.data[id] = v; this.save(); this.refresh(); };
@@ -628,43 +837,82 @@
     acts.appendChild(stack);
     this.snapList = el('div', { style: 'margin-top:14px' });
     acts.appendChild(this.snapList);
-    acts.appendChild(el('p', { class: 'pct', style: 'margin-top:12px', text: 'Saved automatically, in this browser.' }));
+    acts.appendChild(el('p', {
+      class: 'pct', style: 'margin-top:12px', 'data-sync': '1',
+      text: Plan.isIn() ? 'Saved to your account' : 'Saved in this browser only'
+    }));
+    if (!Plan.isIn()) {
+      acts.appendChild(el('a', {
+        class: 'btn btn-outline btn-sm btn-block', style: 'margin-top:10px',
+        href: rootPath() + 'signup.html', text: 'Save to an account'
+      }));
+    }
     side.appendChild(acts);
 
     this.bar = bar.firstChild; this.pctEl = pctEl; this.secNav = ul;
     this.renderSnapshots();
   };
 
-  /* ------------------------------------------------------------- snapshots */
-  Tool.prototype.snapKey = function () { return 'snap:' + this.outlet.id + ':' + this.s.id; };
+  /* ------------------------------------------------------------- snapshots
+     Signed in, snapshots live on the server with the worksheet. Signed out,
+     they stay local — but the button is Pro-gated anyway.                  */
+  Tool.prototype.snapKey = function () {
+    return 'snap:' + (this.outlet ? this.outlet.id : 'local') + ':' + this.s.id;
+  };
+
   Tool.prototype.saveSnapshot = function () {
-    var list = store.get(this.snapKey(), []);
-    var label = prompt('Name this snapshot', 'Version ' + (list.length + 1));
-    if (label === null) return;
+    var self = this;
     var r = this.s.result(this.data, this) || {};
-    list.unshift({ at: Date.now(), label: label || ('Version ' + (list.length + 1)), score: Math.round(r.score || 0), data: JSON.parse(JSON.stringify(this.data)) });
-    store.set(this.snapKey(), list.slice(0, 20));
+    var score = Math.round(r.score || 0);
+    var existing = store.get(this.snapKey(), []);
+    var label = prompt('Name this snapshot', 'Version ' + (existing.length + 1));
+    if (label === null) return;
+    label = label || ('Version ' + (existing.length + 1));
+
+    if (Plan.isIn() && this.outlet) {
+      API.Data.createSnapshot(this.outlet.id, this.s.id, label, score, this.data)
+        .then(function () { toast('Snapshot saved to your account.'); self.renderSnapshots(); })
+        .catch(function (e) { toast(e.message); });
+      return;
+    }
+    existing.unshift({ at: Date.now(), label: label, score: score, data: JSON.parse(JSON.stringify(this.data)) });
+    store.set(this.snapKey(), existing.slice(0, 20));
     this.renderSnapshots();
     toast('Snapshot saved.');
   };
+
   Tool.prototype.renderSnapshots = function () {
     if (!this.snapList) return;
     var self = this;
-    var list = store.get(this.snapKey(), []);
-    if (!Plan.isPro() || !list.length) { this.snapList.innerHTML = ''; return; }
-    this.snapList.innerHTML = '<h4 style="font-family:var(--sans);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:700">Snapshots</h4>';
-    list.forEach(function (s, i) {
-      var row = el('div', { style: 'display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13px;padding:6px 0;border-bottom:1px solid var(--line-2)' });
-      row.appendChild(el('span', { text: s.label + ' · ' + s.score }));
-      row.appendChild(el('button', {
-        class: 'btn btn-ghost btn-sm', type: 'button', text: 'Restore',
-        onclick: function () {
-          if (!confirm('Replace the current worksheet with "' + s.label + '"?')) return;
-          store.set(self.key, s.data); location.reload();
-        }
-      }));
-      self.snapList.appendChild(row);
-    });
+    if (!Plan.isPro()) { this.snapList.innerHTML = ''; return; }
+
+    function draw(list) {
+      if (!list.length) { self.snapList.innerHTML = ''; return; }
+      self.snapList.innerHTML = '<h4 style="font-family:var(--sans);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:700">Snapshots</h4>';
+      list.forEach(function (s) {
+        var row = el('div', { style: 'display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13px;padding:6px 0;border-bottom:1px solid var(--line-2)' });
+        row.appendChild(el('span', { text: s.label + ' · ' + (s.score || 0) }));
+        row.appendChild(el('button', {
+          class: 'btn btn-ghost btn-sm', type: 'button', text: 'Restore',
+          onclick: function () {
+            if (!confirm('Replace the current worksheet with "' + s.label + '"?')) return;
+            self.data = s.data || {};
+            store.set(self.key, self.data);
+            if (Plan.isIn() && self.outlet) self._syncToServer();
+            location.reload();
+          }
+        }));
+        self.snapList.appendChild(row);
+      });
+    }
+
+    if (Plan.isIn() && this.outlet) {
+      API.Data.snapshots(this.outlet.id, this.s.id)
+        .then(draw)
+        .catch(function () { draw(store.get(self.snapKey(), [])); });
+    } else {
+      draw(store.get(this.snapKey(), []));
+    }
   };
 
   /* --------------------------------------------------------------- next up */
@@ -811,35 +1059,129 @@
     });
   }
 
-  document.addEventListener('DOMContentLoaded', function () {
-    render.chrome();
+  /* ------------------------------------------------------------ tool gate */
+  /* Draws the locked state when the server says this account may not use the
+     tool. The static page is still downloadable — what this cannot do is get
+     the data, and the API refuses to save anything, which is the part that
+     matters. See backend/README-BACKEND.md for how to lock the file itself. */
+  function renderLocked(mount, info) {
+    var r = rootPath();
+    var signedIn = Plan.isIn();
+    var isPro = /pro/i.test(info.reason || '');
+    mount.innerHTML =
+      '<div class="panel" style="text-align:center;padding:56px 32px">' +
+        '<div style="font-size:40px;margin-bottom:14px">🔒</div>' +
+        '<h2 style="margin-bottom:10px">' + esc(info.title || 'This tool is locked') + '</h2>' +
+        '<p style="color:var(--muted);max-width:46ch;margin:0 auto 22px">' + esc(info.reason || '') + '</p>' +
+        '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">' +
+          (signedIn
+            ? (isPro
+                ? '<a class="btn btn-primary" href="' + r + 'pricing.html">See Pro plans</a>'
+                : '<a class="btn btn-primary" href="' + r + 'app.html">Back to dashboard</a>')
+            : '<a class="btn btn-primary" href="' + r + 'signup.html">Create a free account</a>' +
+              '<a class="btn btn-ghost" href="' + r + 'login.html?next=' +
+                encodeURIComponent(location.pathname.replace(/^\//, '')) + '">Sign in</a>') +
+        '</div>' +
+        '<p style="font-size:13px;color:var(--muted-2);margin-top:22px">' +
+          'Think this is wrong? Email ' + esc((CFG.email) || 'support') + ' and we\'ll sort it out.' +
+        '</p>' +
+      '</div>';
+    var side = document.querySelector('.side');
+    if (side) side.innerHTML = '';
+  }
+
+  /* ---------------------------------------------------------------- boot */
+  function boot() {
     wireInlineForms();
-    markCards();
 
     Array.prototype.forEach.call(document.querySelectorAll('[data-upsell]'), function (b) {
       b.addEventListener('click', function (e) { e.preventDefault(); Plan.upsell(b.getAttribute('data-upsell')); });
     });
-    Array.prototype.forEach.call(document.querySelectorAll('[data-set-plan]'), function (b) {
-      b.addEventListener('click', function (e) {
-        e.preventDefault();
-        var p = b.getAttribute('data-set-plan');
-        if (p === 'pro') { Plan.set('pro'); toast('Pro preview on — this browser only.'); }
-        else { Plan.set('free'); toast('Back to the free plan.'); }
-        setTimeout(function () { location.reload(); }, 600);
-      });
-    });
 
-    var mount = document.getElementById('tool-mount');
-    if (mount && global.TOOL_SCHEMA) {
-      document.title = global.TOOL_SCHEMA.title + ' · Restaurant Casestudy';
-      new Tool(global.TOOL_SCHEMA, mount);
-    }
-    if (global.PAGE_INIT) global.PAGE_INIT();
-  });
+    // Refresh the session first so every later decision uses the real plan.
+    var ready = (global.API && API.Auth.token())
+      ? API.Auth.refresh().catch(function () { return null; })
+      : Promise.resolve(null);
+
+    return ready
+      .then(function () { return global.API ? API.bootstrap(true).catch(function () { return null; }) : null; })
+      .then(function () { return Outlets.load(); })
+      .then(function () {
+        render.chrome();
+        render.content();
+        markCards();
+
+        var mount = document.getElementById('tool-mount');
+        if (!mount || !global.TOOL_SCHEMA) {
+          if (global.PAGE_INIT) global.PAGE_INIT();
+          return;
+        }
+
+        var schema = global.TOOL_SCHEMA;
+        document.title = schema.title + ' · Restaurant Casestudy';
+
+        return API.access(schema.id).then(function (info) {
+          if (info.access === 'none') {
+            renderLocked(mount, { title: info.title || schema.title, reason: info.reason });
+            API.Data.event('denied', schema.id);
+            return;
+          }
+          API.Data.event('tool_open', schema.id);
+
+          // Signed in but no usable outlet — the account can't store anything
+          // yet, so say so rather than pretending the work is being saved.
+          if (Plan.isIn() && info.access === 'full' && !Outlets.active()) {
+            var t0 = new Tool(schema, mount, { access: 'preview' });
+            t0.setSyncState('error', 'No outlet yet — add one to save this');
+            return t0;
+          }
+
+          // Signed in: pull the saved worksheet so it follows the account.
+          if (Plan.isIn() && info.access === 'full' && Outlets.active()) {
+            return API.Data.getWorksheet(Outlets.active().id, schema.id)
+              .then(function (rec) {
+                var t = new Tool(schema, mount, { access: info.access, data: rec ? rec.data : null });
+                t.setSyncState('saved');
+                if (!rec) t.setSyncState('local');
+                return t;
+              })
+              .catch(function () {
+                var t = new Tool(schema, mount, { access: info.access });
+                t.setSyncState('error', 'Working offline — saved on this device');
+                return t;
+              });
+          }
+
+          var tool = new Tool(schema, mount, { access: info.access });
+          if (info.access === 'preview') {
+            mount.insertBefore(el('div', {
+              class: 'callout warn',
+              style: 'margin-bottom:16px',
+              html: '<strong>Preview mode.</strong> Use the tool as much as you like — your answers stay in this browser. ' +
+                    '<a href="' + rootPath() + 'signup.html" style="color:var(--brand);font-weight:600">Create a free account</a> ' +
+                    'to save them to your account and reach them from any device.'
+            }), mount.firstChild);
+          } else {
+            tool.setSyncState('local');
+          }
+        }).catch(function () {
+          // Backend unreachable — let people work rather than showing a wall.
+          new Tool(schema, mount, { access: 'preview' });
+        }).then(function () {
+          if (global.PAGE_INIT) global.PAGE_INIT();
+        });
+      })
+      .catch(function (err) {
+        if (global.console) console.error('boot failed', err);
+        if (global.PAGE_INIT) global.PAGE_INIT();
+      });
+  }
+
+  document.addEventListener('DOMContentLoaded', boot);
 
   global.App = {
     store: store, el: el, num: num, inr: inr, pct: pct, esc: esc,
     Plan: Plan, Outlets: Outlets, Account: Account, Tool: Tool,
-    toast: toast, modal: modal, render: render, rootPath: rootPath
+    toast: toast, modal: modal, render: render, rootPath: rootPath, boot: boot
   };
 })(window);

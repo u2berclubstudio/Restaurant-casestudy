@@ -16,6 +16,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23c41230%22/><text x=%2250%22 y=%2272%22 font-size=%2262%22 font-family=%22Georgia,serif%22 font-weight=%22bold%22 fill=%22white%22 text-anchor=%22middle%22>R</text></svg>">
 </head>
 <body>
+<div data-announce></div>
 
 <header class="site-head">
   <div class="wrap">
@@ -23,7 +24,7 @@
       <span class="mark">R</span>
       <span class="brand-txt">Restaurant Casestudy<small>Run on numbers, not hope</small></span>
     </a>
-    <nav class="site-nav">
+    <nav class="site-nav" data-nav>
       <a href="./index.html#tools">Tools</a>
       <a href="./index.html#how">How it works</a>
       <a href="./pricing.html">Pricing</a>
@@ -36,31 +37,49 @@
 <section class="hero" style="padding-bottom:24px">
   <div class="wrap">
     <span class="eyebrow">Privacy</span>
-    <h1 style="max-width:18ch">What we store, and where</h1>
-    <p class="lede">Short version: your restaurant's numbers stay on your own device. We only ever receive an email address, and only if you give us one.</p>
+    <h1 style="max-width:20ch">What we store, and where</h1>
+    <p class="lede">Short version: without an account nothing leaves your device. With an account, your worksheets are stored on our server so they follow you between devices — and you can delete them at any time.</p>
   </div>
 </section>
 
 <section class="section-sm">
   <div class="wrap wrap-narrow" style="padding:0">
-    <h3 style="margin-top:20px">Your worksheet answers</h3>
-    <p style="color:var(--ink-2)">Everything you type into a tool is saved in your browser's local storage, on your own device. It is never transmitted to a server. We cannot see it, and neither can anyone else.</p>
-    <p style="color:var(--ink-2)">Two consequences worth knowing: your answers will not appear if you open the site on a different device or browser, and they will be lost if you clear your browsing data. Export a PDF when you finish something that matters.</p>
 
-    <h3 style="margin-top:28px">Your email address</h3>
-    <p style="color:var(--ink-2)">If you enter your email for product updates or founder pricing, we store that address so we can send you what you asked for. We do not sell it, rent it, or share it. Every email carries an unsubscribe link.</p>
+    <h3 style="margin-top:20px">If you don't have an account</h3>
+    <p style="color:var(--ink-2)">Everything you type into a tool is saved only in your browser's local storage, on your own device. It is never transmitted anywhere. We cannot see it, and neither can anyone else.</p>
+    <p style="color:var(--ink-2)">The trade-off is that it will not appear on another device, and it is lost if you clear your browsing data.</p>
+
+    <h3 style="margin-top:28px">If you do have an account</h3>
+    <p style="color:var(--ink-2)">Your worksheet answers — including rent figures, costs, margins and break-even numbers — are stored on our server so they sync across your devices and survive a cleared browser.</p>
+    <p style="color:var(--ink-2)">That data belongs to you. Specifically:</p>
+    <ul style="color:var(--ink-2);line-height:1.8">
+      <li>Only your account can read your worksheets. This is enforced on the server, not just hidden in the interface.</li>
+      <li>We do not sell it, share it, or use it to train anything.</li>
+      <li>Staff can see your email, plan and which tools you have opened — needed to run the service and provide support. Staff do <strong>not</strong> browse the contents of your worksheets as a matter of routine, and will only ever open one if you ask us to help with it.</li>
+      <li>Delete an outlet and its worksheets are deleted with it. Ask us to close your account and everything goes.</li>
+    </ul>
+
+    <h3 style="margin-top:28px">Where it physically lives</h3>
+    <p style="color:var(--ink-2)">On our own server, in a database file we control. It is not in a third-party cloud database, and it does not pass through any analytics or marketing platform.</p>
+
+    <h3 style="margin-top:28px">Your account details</h3>
+    <p style="color:var(--ink-2)">We store your email address, your name and restaurant name if you give them, and your plan. Your password is stored only as a salted hash — we cannot read it, and neither could anyone who obtained the database.</p>
+
+    <h3 style="margin-top:28px">Email addresses you give us elsewhere</h3>
+    <p style="color:var(--ink-2)">If you enter your email for product updates or founder pricing without creating an account, we store just that address so we can send you what you asked for. We do not sell or rent it. Every email carries an unsubscribe link.</p>
 
     <h3 style="margin-top:28px">Cookies and tracking</h3>
-    <p style="color:var(--ink-2)">No advertising or tracking cookies are set. Browser local storage is used purely to keep your worksheets, your chosen outlet and your plan state between visits.</p>
+    <p style="color:var(--ink-2)">No advertising or tracking cookies. We set one cookie holding your sign-in token so you stay signed in, and use browser local storage for your chosen outlet and an offline copy of your work. There is no Google Analytics, no Facebook pixel, no third-party tracker of any kind.</p>
+    <p style="color:var(--ink-2)">We do record which tools signed-in users open, so we know which ones are worth improving. That record is a tool name and a timestamp against your account — not what you typed into it.</p>
 
     <h3 style="margin-top:28px">Third parties</h3>
-    <p style="color:var(--ink-2)">Fonts load from Google Fonts, so Google receives your IP address when the page loads, as on most websites. Nothing else on this site calls out to a third party.</p>
+    <p style="color:var(--ink-2)">Fonts load from Google Fonts, so Google receives your IP address when a page loads, as on most websites. Nothing else on this site calls out to a third party.</p>
 
     <h3 style="margin-top:28px">Payments</h3>
-    <p style="color:var(--ink-2)">When Pro launches, payments will be handled by a third-party processor. Card details will go to them directly and will never touch our systems.</p>
+    <p style="color:var(--ink-2)">When Pro launches, payments will be handled by a third-party processor. Card details go to them directly and never touch our systems.</p>
 
-    <h3 style="margin-top:28px">Getting in touch</h3>
-    <p style="color:var(--ink-2)">To ask what we hold about you, or to have it deleted, email <a href="mailto:honestdigitalmarketer@gmail.com" style="color:var(--brand)">honestdigitalmarketer@gmail.com</a>.</p>
+    <h3 style="margin-top:28px">Getting your data, or deleting it</h3>
+    <p style="color:var(--ink-2)">Email <a href="mailto:honestdigitalmarketer@gmail.com" style="color:var(--brand)">honestdigitalmarketer@gmail.com</a> and we will send you everything we hold about you, or delete all of it, within a few days. You do not need to give a reason.</p>
 
     <div class="callout warn" style="margin-top:30px">
       <strong>Not professional advice.</strong> These tools produce estimates from the numbers you enter, measured against published industry ranges. They are not legal, tax or financial advice. Have a lawyer read any lease and an accountant check any financial plan before you commit money.
@@ -117,6 +136,7 @@
 </footer>
 
 <script src="./assets/config.js"></script>
+<script src="./assets/api.js"></script>
 <script src="./assets/engine.js"></script>
 <script>document.getElementById("yr").textContent=new Date().getFullYear();</script>
 </body>

@@ -16,6 +16,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23c41230%22/><text x=%2250%22 y=%2272%22 font-size=%2262%22 font-family=%22Georgia,serif%22 font-weight=%22bold%22 fill=%22white%22 text-anchor=%22middle%22>R</text></svg>">
 </head>
 <body>
+<div data-announce></div>
 
 <header class="site-head">
   <div class="wrap">
@@ -23,7 +24,7 @@
       <span class="mark">R</span>
       <span class="brand-txt">Restaurant Casestudy<small>Run on numbers, not hope</small></span>
     </a>
-    <nav class="site-nav">
+    <nav class="site-nav" data-nav>
       <a href="./index.html#tools">Tools</a>
       <a href="./index.html#how">How it works</a>
       <a href="./pricing.html">Pricing</a>
@@ -190,6 +191,7 @@ window.PAGE_INIT = function () {
 </footer>
 
 <script src="./assets/config.js"></script>
+<script src="./assets/api.js"></script>
 <script src="./assets/engine.js"></script>
 <script>document.getElementById("yr").textContent=new Date().getFullYear();</script>
 </body>

@@ -16,6 +16,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23c41230%22/><text x=%2250%22 y=%2272%22 font-size=%2262%22 font-family=%22Georgia,serif%22 font-weight=%22bold%22 fill=%22white%22 text-anchor=%22middle%22>R</text></svg>">
 </head>
 <body>
+<div data-announce></div>
 
 <header class="site-head">
   <div class="wrap">
@@ -23,7 +24,7 @@
       <span class="mark">R</span>
       <span class="brand-txt">Restaurant Casestudy<small>Run on numbers, not hope</small></span>
     </a>
-    <nav class="site-nav">
+    <nav class="site-nav" data-nav>
       <a href="./index.html#tools">Tools</a>
       <a href="./index.html#how">How it works</a>
       <a href="./pricing.html">Pricing</a>
@@ -35,11 +36,11 @@
 
 <section class="hero">
   <div class="wrap">
-    <span class="eyebrow">Free for your first outlet · No card</span>
-    <h1>Nine out of ten restaurants close. Usually for reasons a <em>spreadsheet</em> could have caught.</h1>
-    <p class="lede">Restaurant Casestudy turns the eight decisions that decide whether a restaurant survives — purpose, concept, location, money, menu, systems, marketing and off-hours revenue — into working tools that score your answers and tell you exactly what is wrong.</p>
+    <span class="eyebrow" data-content="hero_eyebrow">Free for your first outlet · No card</span>
+    <h1 data-content="hero_title">Nine out of ten restaurants close. Usually for reasons a spreadsheet could have caught.</h1>
+    <p class="lede" data-content="hero_lede">Restaurant Casestudy turns the eight decisions that decide whether a restaurant survives — purpose, concept, location, money, menu, systems, marketing and off-hours revenue — into working tools that score your answers and tell you exactly what is wrong.</p>
     <div class="hero-actions">
-      <a class="btn btn-primary btn-lg" href="app.html">Start free →</a>
+      <a class="btn btn-primary btn-lg" href="signup.html"><span data-content="hero_cta">Start free</span> →</a>
       <a class="btn btn-ghost btn-lg" href="t/break-even.html">Try the break-even calculator</a>
     </div>
     <p class="hero-note">
@@ -48,21 +49,21 @@
       <span><b>✓</b> Your data stays on your device</span>
     </p>
 
-    <div class="stat-strip">
-      <div><strong>60%</strong><span>close within year one</span></div>
-      <div><strong>90%</strong><span>close within five years</span></div>
-      <div><strong>8</strong><span>tools, one per failure point</span></div>
-      <div><strong>10%</strong><span>the rent ratio most miss</span></div>
+    <div class="stat-strip" data-show="show_stats_strip">
+      <div><strong data-content="stat_1_value">60%</strong><span data-content="stat_1_label">close within year one</span></div>
+      <div><strong data-content="stat_2_value">90%</strong><span data-content="stat_2_label">close within five years</span></div>
+      <div><strong data-content="stat_3_value">8</strong><span data-content="stat_3_label">tools, one per failure point</span></div>
+      <div><strong data-content="stat_4_value">10%</strong><span data-content="stat_4_label">the rent ratio most miss</span></div>
     </div>
   </div>
 </section>
 
-<section class="section section-tint" id="tools">
+<section class="section section-tint" id="tools" data-show="logged_out_can_browse_tools">
   <div class="wrap">
     <div class="section-head">
       <p class="kicker">The toolkit</p>
-      <h2>Eight tools. Eight ways restaurants die.</h2>
-      <p>Each one saves as you type and produces a scored verdict with specific flagged problems — not a generic checklist. Work through them in order if you are planning, or jump to whichever one hurts if you are already trading.</p>
+      <h2 data-content="tools_heading">Eight tools. Eight ways restaurants die.</h2>
+      <p data-content="tools_intro">Each one saves as you type and produces a scored verdict with specific flagged problems — not a generic checklist. Work through them in order if you are planning, or jump to whichever one hurts if you are already trading.</p>
     </div>
     <div class="grid g3">
       <a class="tool-card" href="t/purpose.html" data-tool="purpose">
@@ -208,7 +209,7 @@
   </div>
 </section>
 
-<section class="section section-dark">
+<section class="section section-dark" data-show="show_pricing_section">
   <div class="wrap">
     <div class="section-head center">
       <p class="kicker">Pricing</p>
@@ -221,7 +222,7 @@
         <p class="who">Everything you need to plan or fix one restaurant.</p>
         <div class="price">₹0<small>/forever</small></div>
         <p class="price-note">No card, no signup to start</p>
-        <a class="btn btn-ghost btn-block" href="app.html">Start free</a>
+        <a class="btn btn-ghost btn-block" href="signup.html">Start free</a>
         <ul>
           <li><i>✓</i><span>All <b>8 tools</b>, fully working</span></li>
           <li><i>✓</i><span><b>1 outlet</b></span></li>
@@ -251,7 +252,7 @@
   </div>
 </section>
 
-<section class="section" id="faq">
+<section class="section" id="faq" data-show="show_faq_section">
   <div class="wrap wrap-narrow" style="padding:0">
     <p class="kicker">Questions</p>
     <h2 style="margin-bottom:24px">FAQ</h2>
@@ -281,7 +282,7 @@
     <h2>Find out what your restaurant actually needs</h2>
     <p style="color:var(--muted);max-width:50ch;margin:12px auto 26px">Start with the break-even number. It takes about fifteen minutes and it changes most people's plans.</p>
     <div class="hero-actions" style="justify-content:center">
-      <a class="btn btn-primary btn-lg" href="app.html">Start free →</a>
+      <a class="btn btn-primary btn-lg" href="signup.html"><span data-content="hero_cta">Start free</span> →</a>
       <a class="btn btn-ghost btn-lg" href="pricing.html">Compare plans</a>
     </div>
   </div>
@@ -336,6 +337,7 @@
 </footer>
 
 <script src="./assets/config.js"></script>
+<script src="./assets/api.js"></script>
 <script src="./assets/engine.js"></script>
 <script>document.getElementById("yr").textContent=new Date().getFullYear();</script>
 </body>
